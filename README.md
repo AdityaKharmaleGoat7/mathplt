@@ -32,7 +32,7 @@ jupyter lab
 
 Animate any equation where `x` is the spatial axis and `t` advances each frame.
 
-![2D Graph Animation](assets/graph2d.png)
+![2D Graph Animation](assets/graph2d.gif)
 
 **Example equations**
 
@@ -49,7 +49,7 @@ sin(x * t) / (1 + x**2)
 
 Rotating 3D surface plots with full mouse drag rotation in the web app.
 
-![3D Surface](assets/graph3d.png)
+![3D Surface](assets/graph3d.gif)
 
 **Example equations**
 
@@ -71,7 +71,7 @@ Domain coloring maps every point in the complex plane to a color:
 **Dark spots** are zeros of `f(z)`  
 **Bright chaotic patches** are poles  
 
-![Complex Plane Domain Coloring](assets/complex_plane.png)
+![Complex Plane Domain Coloring](assets/complex_plane.gif)
 
 **Example equations** (use variable `z`)
 
@@ -111,7 +111,7 @@ and extended to the entire complex plane via analytic continuation.
 
 The path of `ζ(½ + it)` as `t` increases. Every time the path **crosses the origin**, there is a nontrivial zero. The Riemann Hypothesis says all nontrivial zeros satisfy `Re(s) = ½`.
 
-![Riemann Zeros](assets/riemann_zeros.png)
+![Riemann Zeros](assets/riemann_zeros.gif)
 
 Known zeros (imaginary parts): `14.135, 21.022, 25.011, 30.425, 32.935, ...`
 
@@ -121,6 +121,8 @@ Magnitude and phase of `ζ(s)` over the critical strip `0 < Re(s) < 1`.
 Zeros appear as dark spots along the cyan dashed critical line `Re(s) = ½`.
 
 ![Critical Strip](assets/critical_strip.png)
+
+> The cyan dashed line marks the critical line Re(s) = ½. Dark spots along it are zeros of ζ(s).
 
 #### Winding Number
 
