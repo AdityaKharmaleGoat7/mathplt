@@ -11,6 +11,87 @@ from mathplt.core.equation_parser import EquationParser
 app = dash.Dash(__name__, title="mathplt", suppress_callback_exceptions=True)
 _parser = EquationParser()
 
+# ── Inject dark-mode CSS for Dash dropdowns and scrollbars ────────────────────
+app.index_string = """<!DOCTYPE html>
+<html>
+  <head>
+    {%metas%}<title>{%title%}</title>{%favicon%}{%css%}
+    <style>
+      /* ── Scrollbar ──────────────────────────────────────────── */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #0d1117; }
+      ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+      /* ── Dash dcc.Dropdown dark theme ───────────────────────── */
+      .Select-control {
+        background-color: #0d1117 !important;
+        border-color: #30363d !important;
+      }
+      .Select-control:hover { border-color: #58a6ff !important; }
+      .Select-value-label, .Select-input input, .Select-placeholder {
+        color: #e6edf3 !important;
+      }
+      .Select-placeholder { color: #484f58 !important; }
+      .Select-arrow-zone .Select-arrow { border-top-color: #8b949e !important; }
+      .is-open .Select-arrow { border-bottom-color: #8b949e !important; }
+      .Select-menu-outer {
+        background-color: #161b22 !important;
+        border: 1px solid #30363d !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+        z-index: 9999 !important;
+      }
+      .Select-option {
+        background-color: #161b22 !important;
+        color: #c9d1d9 !important;
+        font-size: 13px;
+        padding: 8px 12px !important;
+      }
+      .Select-option:hover,
+      .Select-option.is-focused {
+        background-color: #21262d !important;
+        color: #e6edf3 !important;
+      }
+      .Select-option.is-selected {
+        background-color: #1f3a5f !important;
+        color: #58a6ff !important;
+        font-weight: 600;
+      }
+      .Select-option.is-disabled {
+        color: #30363d !important;
+        font-style: italic;
+        font-size: 11px !important;
+        padding: 4px 10px !important;
+        cursor: default !important;
+        pointer-events: none;
+      }
+      .Select-multi-value-wrapper { color: #e6edf3 !important; }
+      .Select-noresults { color: #8b949e !important; background: #161b22 !important; }
+
+      /* ── Number inputs ──────────────────────────────────────── */
+      input[type=number] { color-scheme: dark; }
+      input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
+
+      /* ── Slider tooltip ─────────────────────────────────────── */
+      .rc-slider-tooltip-inner {
+        background-color: #161b22 !important;
+        border: 1px solid #30363d !important;
+        color: #e6edf3 !important;
+        font-size: 11px !important;
+      }
+      .rc-slider-tooltip-arrow { border-top-color: #30363d !important; }
+
+      /* ── Global text ────────────────────────────────────────── */
+      body { background: #0d1117; color: #e6edf3; }
+    </style>
+  </head>
+  <body>
+    {%app_entry%}
+    <footer>{%config%}{%scripts%}{%renderer%}</footer>
+  </body>
+</html>
+"""
+
 # ── Dark theme template ────────────────────────────────────────────────────────
 DARK = dict(
     template="plotly_dark",
@@ -21,158 +102,196 @@ DARK = dict(
     uirevision="keep",
 )
 
+# ── Shared style constants ─────────────────────────────────────────────────────
+_CARD  = {"background": "#161b22", "border": "1px solid #30363d",
+          "borderRadius": "8px", "padding": "12px 14px", "marginBottom": "10px"}
+_SEC   = {"fontSize": "10px", "fontWeight": "700", "color": "#58a6ff",
+          "textTransform": "uppercase", "letterSpacing": "0.08em", "marginBottom": "10px"}
+_LBL   = {"color": "#8b949e", "fontSize": "11px", "fontWeight": "600",
+          "marginBottom": "4px", "display": "block"}
+_HINT  = {"color": "#6e7681", "fontSize": "10px", "marginTop": "3px", "marginBottom": "8px"}
+_INPUT = {"width": "100%", "boxSizing": "border-box",
+          "background": "#0d1117", "color": "#e6edf3",
+          "border": "1px solid #30363d", "borderRadius": "6px",
+          "padding": "8px 10px", "fontFamily": "monospace", "fontSize": "13px",
+          "marginBottom": "4px"}
+
 # ── Layout ─────────────────────────────────────────────────────────────────────
 app.layout = html.Div(style={
     "display": "flex", "height": "100vh", "background": "#0d1117",
     "color": "#e6edf3", "fontFamily": "monospace", "overflow": "hidden",
 }, children=[
 
-    # Sidebar
+    # ── Sidebar ────────────────────────────────────────────────────────────────
     html.Div(style={
-        "width": "300px", "minWidth": "300px", "padding": "16px 12px",
+        "width": "300px", "minWidth": "300px", "padding": "14px 12px",
         "borderRight": "1px solid #30363d", "overflowY": "auto",
-        "background": "#0d1117",
+        "background": "#0d1117", "display": "flex", "flexDirection": "column",
     }, children=[
 
-        html.H3("mathplt", style={"color": "#58a6ff", "margin": "0 0 4px 0"}),
-        html.Div("interactive math animations", style={"color": "#8b949e", "fontSize": "12px", "marginBottom": "16px"}),
+        # Brand
+        html.Div(style={"marginBottom": "16px"}, children=[
+            html.Div(style={"display": "flex", "alignItems": "baseline", "gap": "8px"}, children=[
+                html.Span("mathplt", style={"color": "#58a6ff", "fontSize": "18px", "fontWeight": "700"}),
+                html.Span("v0.1", style={"color": "#30363d", "fontSize": "11px"}),
+            ]),
+            html.Div("interactive math visualizer", style={"color": "#6e7681", "fontSize": "11px", "marginTop": "2px"}),
+        ]),
 
-        # Animation type
-        html.Label("Animation type", style={"color": "#8b949e", "fontSize": "11px"}),
-        dcc.Dropdown(id="anim-type", value="graph2d", clearable=False,
-            options=[
-                {"label": "2D Graph  f(x, t)",                     "value": "graph2d"},
-                {"label": "3D Surface  f(x, y)",                    "value": "graph3d"},
-                {"label": "Complex Plane  f(z)",                    "value": "complex"},
-                {"label": "Riemann: Zeros on critical line",         "value": "riemann.zeros"},
-                {"label": "Riemann: Critical strip heatmap",         "value": "riemann.critical_strip"},
-                {"label": "Riemann: Winding number",                 "value": "riemann.winding"},
-            ],
-            style={"marginBottom": "14px", "fontSize": "13px"},
-        ),
+        # ── Mode selector ──────────────────────────────────────────────────────
+        html.Div(style=_CARD, children=[
+            html.Div("Visualization mode", style=_SEC),
+            dcc.Dropdown(id="anim-type", value="graph2d", clearable=False,
+                options=[
+                    {"label": "2D Graph  —  f(x, t)",             "value": "graph2d"},
+                    {"label": "3D Surface  —  f(x, y)",            "value": "graph3d"},
+                    {"label": "Complex Plane  —  f(z)",            "value": "complex"},
+                    {"label": "─── Riemann ζ ───────────",         "value": "_sep", "disabled": True},
+                    {"label": "  ζ  Zeros on critical line",       "value": "riemann.zeros"},
+                    {"label": "  ζ  Critical strip heatmap",       "value": "riemann.critical_strip"},
+                    {"label": "  ζ  Winding number",               "value": "riemann.winding"},
+                    {"label": "  ζ  Evaluate ζ(a + ib)",          "value": "riemann.point"},
+                ],
+                style={"fontSize": "13px"},
+            ),
+        ]),
 
-        # Equation
-        html.Div(id="eq-section", children=[
-            html.Label("Equation", style={"color": "#8b949e", "fontSize": "11px"}),
+        # ── Equation ──────────────────────────────────────────────────────────
+        html.Div(id="eq-section", style=_CARD, children=[
+            html.Div("Equation", style=_SEC),
             dcc.Input(id="equation", type="text", debounce=True,
                 value="sin(x + t) * exp(-0.1 * x**2)",
-                style={
-                    "width": "100%", "boxSizing": "border-box",
-                    "background": "#161b22", "color": "#e6edf3",
-                    "border": "1px solid #30363d", "borderRadius": "6px",
-                    "padding": "8px", "fontFamily": "monospace", "fontSize": "13px",
-                    "marginBottom": "4px",
-                },
+                placeholder="e.g. sin(x + t) * exp(-0.1 * x**2)",
+                style=_INPUT,
             ),
-            html.Div(id="eq-status", style={"fontSize": "11px", "marginBottom": "12px", "color": "#8b949e"},
+            html.Div(id="eq-status", style={"fontSize": "11px", "color": "#8b949e"},
                      children="Press Enter to apply"),
+            html.Div("Use x, t for 2D · x, y for 3D · z, t for complex", style=_HINT),
         ]),
 
-        # x range
-        html.Div(id="xrange-section", children=[
-            html.Label("x range", style={"color": "#8b949e", "fontSize": "11px"}),
+        # ── Hidden range inputs (kept for callback compatibility) ──────────────
+        html.Div(id="xrange-section", style={"display": "none"}, children=[
             dcc.RangeSlider(id="xrange", min=-20, max=20, step=1, value=[-10, 10],
-                marks={-20: "-20", -10: "-10", 0: "0", 10: "10", 20: "20"},
-                tooltip={"placement": "bottom", "always_visible": True}),
-            html.Div(style={"height": "8px"}),
+                marks={-20: "-20", 0: "0", 20: "20"},
+                tooltip={"placement": "bottom", "always_visible": False}),
         ]),
-
-        # y range (3D only)
         html.Div(id="yrange-section", style={"display": "none"}, children=[
-            html.Label("y range", style={"color": "#8b949e", "fontSize": "11px"}),
             dcc.RangeSlider(id="yrange", min=-20, max=20, step=1, value=[-5, 5],
                 marks={-20: "-20", 0: "0", 20: "20"},
-                tooltip={"placement": "bottom", "always_visible": True}),
-            html.Div(style={"height": "8px"}),
+                tooltip={"placement": "bottom", "always_visible": False}),
         ]),
-
-        # Re/Im range (complex)
         html.Div(id="complex-section", style={"display": "none"}, children=[
-            html.Label("Re(z) range", style={"color": "#8b949e", "fontSize": "11px"}),
             dcc.RangeSlider(id="rerange", min=-8, max=8, step=0.5, value=[-3, 3],
                 marks={-8: "-8", 0: "0", 8: "8"},
-                tooltip={"placement": "bottom", "always_visible": True}),
-            html.Div(style={"height": "8px"}),
-            html.Label("Im(z) range", style={"color": "#8b949e", "fontSize": "11px"}),
+                tooltip={"placement": "bottom", "always_visible": False}),
             dcc.RangeSlider(id="imrange", min=-8, max=8, step=0.5, value=[-3, 3],
                 marks={-8: "-8", 0: "0", 8: "8"},
-                tooltip={"placement": "bottom", "always_visible": True}),
-            html.Div(style={"height": "8px"}),
+                tooltip={"placement": "bottom", "always_visible": False}),
         ]),
 
-        # t slider
-        html.Div(id="t-section", children=[
-            html.Label("t  (time)", style={"color": "#8b949e", "fontSize": "11px"}),
+        # ── Time slider ────────────────────────────────────────────────────────
+        html.Div(id="t-section", style=_CARD, children=[
+            html.Div("Time  t", style=_SEC),
             dcc.Slider(id="tval", min=0, max=20, step=0.05, value=0,
-                marks={0: "0", 10: "10", 20: "20"},
+                marks={0: "0", 5: "5", 10: "10", 15: "15", 20: "20"},
                 tooltip={"placement": "bottom", "always_visible": True}),
-            html.Div(style={"height": "8px"}),
+            html.Div("Drag to scrub · use Play below to animate", style=_HINT),
         ]),
 
-        # Resolution
-        html.Label("Resolution", style={"color": "#8b949e", "fontSize": "11px"}),
-        dcc.Slider(id="resolution", min=30, max=300, step=10, value=150,
-            marks={30: "30", 150: "150", 300: "300"},
-            tooltip={"placement": "bottom", "always_visible": True}),
-        html.Div(style={"height": "14px"}),
-
-        # Colormap
-        html.Div(id="cmap-section", children=[
-            html.Label("Colormap", style={"color": "#8b949e", "fontSize": "11px"}),
-            dcc.Dropdown(id="colormap", value="viridis", clearable=False,
-                options=[{"label": c, "value": c} for c in
-                         ["viridis", "plasma", "inferno", "magma", "turbo", "RdBu", "Spectral"]],
-                style={"marginBottom": "14px", "fontSize": "13px"},
-            ),
+        # ── Display settings ──────────────────────────────────────────────────
+        html.Div(style=_CARD, children=[
+            html.Div("Display", style=_SEC),
+            html.Span("Resolution", style=_LBL),
+            dcc.Slider(id="resolution", min=30, max=300, step=10, value=150,
+                marks={30: "lo", 150: "mid", 300: "hi"},
+                tooltip={"placement": "bottom", "always_visible": True}),
+            html.Div("Higher = sharper but slower to compute", style=_HINT),
+            html.Div(id="cmap-section", children=[
+                html.Span("Colormap", style=_LBL),
+                dcc.Dropdown(id="colormap", value="viridis", clearable=False,
+                    options=[{"label": c, "value": c} for c in
+                             ["viridis", "plasma", "inferno", "magma", "turbo", "RdBu", "Spectral"]],
+                    style={"fontSize": "13px"},
+                ),
+            ]),
         ]),
 
-        # Riemann controls
-        html.Div(id="riemann-section", style={"display": "none"}, children=[
-            html.Label("Zeros to find", style={"color": "#8b949e", "fontSize": "11px"}),
+        # ── Riemann controls ──────────────────────────────────────────────────
+        html.Div(id="riemann-section", style={**_CARD, "display": "none"}, children=[
+            html.Div("Riemann ζ parameters", style=_SEC),
+            html.Span("Zeros to find", style=_LBL),
             dcc.Slider(id="nzeros", min=5, max=25, step=1, value=12,
                 marks={5: "5", 15: "15", 25: "25"},
                 tooltip={"placement": "bottom", "always_visible": True}),
-            html.Div(style={"height": "8px"}),
-            html.Label("Im(s) max", style={"color": "#8b949e", "fontSize": "11px"}),
+            html.Div("More zeros = slower computation", style=_HINT),
+            html.Span("Im(s) max  —  height of plot", style=_LBL),
             dcc.Slider(id="imsmax", min=5, max=60, step=1, value=40,
                 marks={5: "5", 20: "20", 40: "40", 60: "60"},
                 tooltip={"placement": "bottom", "always_visible": True}),
-            html.Div(style={"height": "8px"}),
-            html.Label("Winding contour top", style={"color": "#8b949e", "fontSize": "11px"}),
+            html.Div(style={"height": "4px"}),
+            html.Span("Winding contour top", style=_LBL),
             dcc.Slider(id="windtop", min=2, max=45, step=0.5, value=15,
-                marks={0: "0", 15: "15", 30: "30", 45: "45"},
+                marks={2: "2", 15: "15", 30: "30", 45: "45"},
                 tooltip={"placement": "bottom", "always_visible": True}),
-            html.Div(style={"height": "8px"}),
+            html.Div("Raise to enclose more zeros in contour", style=_HINT),
         ]),
 
-        # Animate
-        html.Div(id="anim-section", children=[
-            html.Div(style={"display": "flex", "gap": "8px", "marginBottom": "10px"}, children=[
-                html.Button("▶  Play", id="play-btn", n_clicks=0, style={
-                    "flex": 1, "background": "#238636", "color": "white",
-                    "border": "none", "borderRadius": "6px", "padding": "8px",
-                    "cursor": "pointer", "fontSize": "14px",
-                }),
-                html.Button("■  Stop", id="stop-btn", n_clicks=0, style={
-                    "flex": 1, "background": "#6e7681", "color": "white",
-                    "border": "none", "borderRadius": "6px", "padding": "8px",
-                    "cursor": "pointer", "fontSize": "14px",
-                }),
+        # ── Evaluate ζ(a + ib) ────────────────────────────────────────────────
+        html.Div(id="point-section", style={**_CARD, "display": "none"}, children=[
+            html.Div("Evaluate  ζ(a + ib)", style=_SEC),
+            html.Div(style={"display": "flex", "gap": "8px", "marginBottom": "4px"}, children=[
+                html.Div(style={"flex": 1}, children=[
+                    html.Span("Re(s) = a", style=_LBL),
+                    dcc.Input(id="zeta-a", type="number", value=0.5, step=0.1, debounce=True,
+                        style={**_INPUT, "marginBottom": "0"}),
+                ]),
+                html.Div(style={"flex": 1}, children=[
+                    html.Span("Im(s) = b", style=_LBL),
+                    dcc.Input(id="zeta-b", type="number", value=14.135, step=0.5, debounce=True,
+                        style={**_INPUT, "marginBottom": "0"}),
+                ]),
             ]),
-            html.Label("Animation speed", style={"color": "#8b949e", "fontSize": "11px"}),
-            dcc.Slider(id="speed", min=30, max=500, step=10, value=80,
-                marks={30: "fast", 500: "slow"},
-                tooltip={"placement": "bottom", "always_visible": True}),
+            html.Div("Try a=0.5, b=14.135 — the first zero of ζ", style=_HINT),
+            html.Pre(id="zeta-value", style={
+                "background": "#0d1117", "border": "1px solid #238636",
+                "borderRadius": "6px", "padding": "10px", "fontSize": "12px",
+                "color": "#7ee787", "fontFamily": "monospace",
+                "margin": "0", "whiteSpace": "pre",
+            }),
         ]),
 
-        # Info panel
-        html.Hr(style={"borderColor": "#30363d", "margin": "16px 0 10px 0"}),
+        # ── Animation controls ────────────────────────────────────────────────
+        html.Div(id="anim-section", style=_CARD, children=[
+            html.Div("Animation", style=_SEC),
+            html.Button("▶  Play", id="play-btn", n_clicks=0, style={
+                "width": "100%", "background": "#238636", "color": "white",
+                "border": "none", "borderRadius": "6px", "padding": "10px",
+                "cursor": "pointer", "fontSize": "15px", "fontWeight": "600",
+                "letterSpacing": "0.05em", "marginBottom": "6px",
+            }),
+            html.Button("■  Stop", id="stop-btn", n_clicks=0, style={
+                "width": "100%", "background": "#21262d", "color": "#8b949e",
+                "border": "1px solid #30363d", "borderRadius": "6px", "padding": "7px",
+                "cursor": "pointer", "fontSize": "13px", "marginBottom": "10px",
+            }),
+            html.Div(style={"display": "flex", "justifyContent": "space-between",
+                            "marginBottom": "2px"}, children=[
+                html.Span("Speed", style={"color": "#8b949e", "fontSize": "11px"}),
+                html.Span("faster ◄────► slower", style={"color": "#6e7681", "fontSize": "10px"}),
+            ]),
+            dcc.Slider(id="speed", min=30, max=500, step=10, value=80,
+                marks={30: "◄", 500: "►"},
+                tooltip={"placement": "bottom", "always_visible": False}),
+        ]),
+
+        # ── Info panel ────────────────────────────────────────────────────────
+        html.Hr(style={"borderColor": "#21262d", "margin": "6px 0 10px 0"}),
         html.Div(id="info-panel"),
 
     ]),
 
-    # Main graph area
-    html.Div(style={"flex": 1, "overflow": "hidden"}, children=[
+    # ── Main graph area ────────────────────────────────────────────────────────
+    html.Div(style={"flex": 1, "overflow": "hidden", "position": "relative"}, children=[
         dcc.Graph(id="graph", style={"height": "100vh"},
                   config={"scrollZoom": True, "displayModeBar": True,
                           "toImageButtonOptions": {"format": "png", "scale": 2}}),
@@ -195,20 +314,22 @@ app.layout = html.Div(style={
     Output("cmap-section",    "style"),
     Output("riemann-section", "style"),
     Output("anim-section",    "style"),
+    Output("point-section",   "style"),
     Input("anim-type", "value"),
 )
 def show_controls(anim):
     show = {"display": "block"}
     hide = {"display": "none"}
     eq      = show if anim in ("graph2d", "graph3d", "complex") else hide
-    xrange  = show if anim in ("graph2d", "graph3d") else hide
-    yrange  = show if anim == "graph3d" else hide
-    cplx    = show if anim == "complex" else hide
-    t       = show if anim in ("graph2d", "complex", "riemann.zeros") else hide
+    xrange  = hide
+    yrange  = hide
+    cplx    = hide
+    t       = show if anim in ("graph2d", "graph3d", "complex", "riemann.zeros") else hide
     cmap    = show if anim in ("graph3d", "complex") else hide
-    riemann = show if anim.startswith("riemann") else hide
-    anim_s  = show if anim in ("graph2d", "complex", "riemann.zeros") else hide
-    return eq, xrange, yrange, cplx, t, cmap, riemann, anim_s
+    riemann = show if anim.startswith("riemann") and anim != "riemann.point" else hide
+    anim_s  = show if anim in ("graph2d", "graph3d", "complex", "riemann.zeros") else hide
+    point   = show if anim == "riemann.point" else hide
+    return eq, xrange, yrange, cplx, t, cmap, riemann, anim_s, point
 
 
 # Equation validation
@@ -435,6 +556,33 @@ _INFO = {
             ]),
         ],
     },
+    "riemann.point": {
+        "title": "Riemann ζ — Evaluate ζ(a + ib)",
+        "desc": (
+            "Enter any complex number s = a + ib. "
+            "Left panel shows the path of ζ(a+it) in the complex plane as t varies — "
+            "orange dot is ζ(a+ib). Right panel shows |ζ(a+it)| vs t with the "
+            "current b marked. Red dashed lines are known zeros on the critical line."
+        ),
+        "sections": [
+            ("How to use", [
+                ("Field", "Effect"),
+                ("Re(s) = a", "Real part of s — try 0.5 for critical line, >1 for convergence region"),
+                ("Im(s) = b", "Imaginary part — moves the orange dot along the path"),
+                ("Orange dot (left)", "Position of ζ(a+ib) in the complex ζ-plane"),
+                ("Orange line (right)", "Vertical line at your chosen b value"),
+                ("Red dashes (right)", "Known nontrivial zeros (only visible near Re(s)=0.5)"),
+            ]),
+            ("Interesting values to try", [
+                ("a", "b", "What you see"),
+                ("0.5", "14.135", "First nontrivial zero — path passes through origin"),
+                ("0.5", "21.022", "Second zero"),
+                ("1.5", "any", "Safe convergence region — no zeros"),
+                ("0.1", "14.135", "Left of critical line — path shifted from origin"),
+                ("0.9", "14.135", "Right of critical line — symmetric partner"),
+            ]),
+        ],
+    },
 }
 
 
@@ -469,23 +617,18 @@ def update_info(anim):
     if not info:
         return []
 
-    card_style = {"background": "#161b22", "border": "1px solid #30363d",
-                  "borderRadius": "8px", "padding": "12px 14px", "marginBottom": "10px"}
-    h2_style = {"margin": "0 0 8px 0", "fontSize": "11px", "fontWeight": "700",
-                "color": "#58a6ff", "textTransform": "uppercase", "letterSpacing": "0.07em"}
-    p_style = {"margin": "0", "color": "#8b949e", "fontSize": "12px", "lineHeight": "1.6"}
-
     children = [
-        html.Div(style=card_style, children=[
-            html.H2(info["title"], style={"margin": "0 0 6px 0", "fontSize": "13px",
-                                          "fontWeight": "700", "color": "#e6edf3"}),
-            html.P(info["desc"], style=p_style),
+        html.Div(style=_CARD, children=[
+            html.Div(info["title"], style={"margin": "0 0 6px 0", "fontSize": "12px",
+                                           "fontWeight": "700", "color": "#e6edf3"}),
+            html.P(info["desc"], style={"margin": "0", "color": "#8b949e",
+                                        "fontSize": "11px", "lineHeight": "1.6"}),
         ]),
     ]
 
     for section_title, rows in info["sections"]:
-        children.append(html.Div(style=card_style, children=[
-            html.H2(section_title, style=h2_style),
+        children.append(html.Div(style=_CARD, children=[
+            html.Div(section_title, style=_SEC),
             _info_table(rows),
         ]))
 
@@ -503,7 +646,7 @@ def update_info(anim):
 )
 def tick(_, t, anim, imsmax):
     t = t or 0.0
-    if anim in ("graph2d", "complex"):
+    if anim in ("graph2d", "graph3d", "complex"):
         return round((t + 0.12) % 20.0, 3)
     if anim == "riemann.zeros":
         return round((t + 0.2) % float(imsmax or 40), 3)
@@ -512,7 +655,8 @@ def tick(_, t, anim, imsmax):
 
 # Main graph update
 @app.callback(
-    Output("graph", "figure"),
+    Output("graph",      "figure"),
+    Output("zeta-value", "children"),
     Input("anim-type",  "value"),
     Input("equation",   "value"),
     Input("xrange",     "value"),
@@ -525,8 +669,10 @@ def tick(_, t, anim, imsmax):
     Input("nzeros",     "value"),
     Input("imsmax",     "value"),
     Input("windtop",    "value"),
+    Input("zeta-a",     "value"),
+    Input("zeta-b",     "value"),
 )
-def update_graph(anim, eq, xr, yr, rer, imr, t, res, cmap, nz, imsmax, windtop):
+def update_graph(anim, eq, xr, yr, rer, imr, t, res, cmap, nz, imsmax, windtop, za, zb):
     # Defaults
     eq      = eq      or "sin(x + t)"
     xr      = xr      or [-10, 10]
@@ -539,62 +685,77 @@ def update_graph(anim, eq, xr, yr, rer, imr, t, res, cmap, nz, imsmax, windtop):
     nz      = int(nz)    if nz  is not None else 12
     imsmax  = float(imsmax) if imsmax is not None else 40.0
     windtop = float(windtop) if windtop is not None else 15.0
+    za      = float(za) if za is not None else 0.5
+    zb      = float(zb) if zb is not None else 14.135
 
     try:
         if anim == "graph2d":
-            return _fig_2d(eq, xr, t, res)
+            return _fig_2d(eq, t, res), ""
         if anim == "graph3d":
-            return _fig_3d(eq, xr, yr, res, cmap)
+            return _fig_3d(eq, res, cmap, t), ""
         if anim == "complex":
-            return _fig_complex(eq, rer, imr, res, t)
+            return _fig_complex(eq, rer, imr, res, t), ""
         if anim == "riemann.zeros":
-            return _fig_zeros(imsmax, nz, res, t)
+            return _fig_zeros(imsmax, nz, res, t), ""
         if anim == "riemann.critical_strip":
-            return _fig_strip(imsmax, res)
+            return _fig_strip(imsmax, res), ""
         if anim == "riemann.winding":
-            return _fig_winding(windtop, nz)
+            return _fig_winding(windtop, nz), ""
+        if anim == "riemann.point":
+            return _fig_point(za, zb, res)
     except Exception as e:
         fig = go.Figure()
         fig.update_layout(**DARK, title=f"Error: {e}")
-        return fig
+        return fig, ""
 
     fig = go.Figure()
     fig.update_layout(**DARK)
-    return fig
+    return fig, ""
 
 
 # ── Figure builders ────────────────────────────────────────────────────────────
 
-def _fig_2d(eq, xr, t, res):
+def _fig_2d(eq, t, res):
     f = _parser.parse_xt(eq)
-    x = np.linspace(xr[0], xr[1], res)
+    x = np.linspace(-20, 20, res * 2)
     y = np.where(np.isfinite(y := f(x, t)), y, np.nan)
     fig = go.Figure(go.Scatter(x=x, y=y, mode="lines",
                                line=dict(color="#00BFFF", width=2.5)))
     fig.add_hline(y=0, line=dict(color="gray", width=0.5, dash="dot"))
     fig.update_layout(**DARK, title=f"f(x,t) = {eq}   [t = {t:.2f}]",
-                      xaxis_title="x", yaxis_title="f(x, t)", dragmode="pan")
+                      xaxis=dict(title="x", autorange=True),
+                      yaxis=dict(title="f(x, t)", autorange=True),
+                      dragmode="pan")
     return fig
 
 
-def _fig_3d(eq, xr, yr, res, cmap):
+def _fig_3d(eq, res, cmap, t):
     f = _parser.parse_xy(eq)
-    x = np.linspace(xr[0], xr[1], res)
-    y = np.linspace(yr[0], yr[1], res)
+    x = np.linspace(-6, 6, res)
+    y = np.linspace(-6, 6, res)
     X, Y = np.meshgrid(x, y)
     Z = f(X, Y).astype(float)
     Z[~np.isfinite(Z)] = np.nan
+    # Orbital camera rotation driven by t
+    angle = t * 0.3
+    camera = dict(eye=dict(x=2.0 * np.cos(angle), y=2.0 * np.sin(angle), z=0.8))
     fig = go.Figure(go.Surface(x=X, y=Y, z=Z, colorscale=cmap, opacity=0.95))
     fig.update_layout(**DARK, title=f"f(x,y) = {eq}",
                       scene=dict(xaxis_title="x", yaxis_title="y", zaxis_title="f",
-                                 uirevision="keep"))
+                                 camera=camera))
     return fig
 
 
-def _fig_complex(eq, rer, imr, res, t):
+def _fig_complex(eq, _rer, _imr, res, t):
+    import io, base64
+    import matplotlib.image as mpimg
     from mathplt.math.complex_ops import complex_grid, domain_color_fast
-    import plotly.express as px
-    Z = complex_grid((rer[0], rer[1]), (imr[0], imr[1]), re_n=res, im_n=res)
+
+    # Linear grid [-R, R]² — uniform spacing so tick marks are evenly distributed
+    R  = 20.0
+    hi = min(res * 4, 1200)
+    Z  = complex_grid((-R, R), (-R, R), re_n=hi, im_n=hi)
+
     has_t = "t" in eq
     if has_t:
         from mathplt.core.equation_parser import ALLOWED_NAMES, _validate_ast
@@ -604,18 +765,156 @@ def _fig_complex(eq, rer, imr, res, t):
         W = eval(code, {"__builtins__": {}}, dict(ns, z=Z, t=t))
     else:
         W = _parser.parse_complex(eq)(Z)
-    rgb = (domain_color_fast(W) * 255).astype(np.uint8)
-    fig = px.imshow(rgb, origin="lower")
-    n = 5
-    fig.update_xaxes(tickvals=np.linspace(0, res-1, n),
-                     ticktext=[f"{v:.1f}" for v in np.linspace(rer[0], rer[1], n)],
-                     title="Re(z)")
-    fig.update_yaxes(tickvals=np.linspace(0, res-1, n),
-                     ticktext=[f"{v:.1f}" for v in np.linspace(imr[0], imr[1], n)],
-                     title="Im(z)")
-    title = f"f(z) = {eq}" + (f"  [t={t:.2f}]" if has_t else "")
-    fig.update_layout(**DARK, title=title)
+
+    rgb = (domain_color_fast(W, brightness_cycles=1.0, z_input=Z) * 255).astype(np.uint8)
+
+    # Encode as lossless PNG — flip vertically so row-0 = bottom (origin="lower")
+    buf = io.BytesIO()
+    mpimg.imsave(buf, rgb[::-1], format="png")
+    src = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+    # Uniform tick marks: evenly spaced in both pixel and z-space (linear mapping)
+    tick_z  = np.arange(-20, 21, 5, dtype=float)       # -20, -15, ..., 15, 20
+    tick_px = (tick_z + R) / (2 * R) * (hi - 1)        # linear → evenly spaced pixels
+    tick_labels = [str(int(v)) for v in tick_z]
+
+    # Build figure: layout image with sizing="stretch" fills axes domain exactly,
+    # removing all aspect-ratio constraints regardless of container shape.
+    fig = go.Figure()
+    fig.add_layout_image(dict(
+        source=src,
+        xref="x", yref="y",
+        x=0, y=hi,          # top-left corner: x=0, y=hi (image goes DOWN from here)
+        sizex=hi, sizey=hi,  # covers x=[0,hi], y=[0,hi]
+        sizing="stretch",    # fills the exact box — no square forced
+        opacity=1,
+        layer="below",
+    ))
+
+    ax_style = dict(
+        range=[0, hi],
+        tickvals=tick_px, ticktext=tick_labels,
+        tickfont=dict(color="#8b949e", size=10),
+        tickcolor="#30363d", ticklen=4,
+        showgrid=False, zeroline=False,
+        linecolor="#30363d", linewidth=1, showline=True,
+    )
+    fig.update_xaxes(**ax_style, title=dict(text="Re(z)", font=dict(color="#8b949e", size=12)))
+    fig.update_yaxes(**ax_style, title=dict(text="Im(z)", font=dict(color="#8b949e", size=12)))
+
+    title = f"f(z) = {eq}" + (f"   t = {t:.2f}" if has_t else "")
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#0d1117",
+        plot_bgcolor="#0d1117",
+        font=dict(color="#e6edf3"),
+        margin=dict(l=55, r=10, t=36, b=50),
+        uirevision="keep",
+        title=dict(text=title, x=0.5, xanchor="center",
+                   font=dict(size=13, color="#8b949e")),
+    )
     return fig
+
+
+def _fig_point(a: float, b: float, res: int):
+    """
+    Visualize ζ(a + it) with the specific point s = a + ib highlighted.
+    Returns (figure, value_string) matching the two Outputs.
+    """
+    from mathplt.math.zeta import zeta_on_contour, find_zeros_on_critical_line
+
+    # Build t range centred on b, always starting at 0.5
+    half = max(25.0, abs(b) * 0.6)
+    t_min = max(0.5, b - half)
+    t_max = b + half
+    n_pts = max(res * 4, 400)
+    t_vals = np.linspace(t_min, t_max, n_pts)
+
+    s_vals = (a + 1j * t_vals).astype(complex)
+    zv = zeta_on_contour(s_vals, dps=25)
+
+    # Value at the specific point
+    z_pt = complex(a + 1j * b)
+    from mathplt.math.zeta import zeta_on_contour as _zoc
+    w_pt = _zoc(np.array([z_pt]), dps=30)[0]
+    re_w, im_w, mag_w = w_pt.real, w_pt.imag, abs(w_pt)
+    value_str = (
+        f"s = {a:.4g} + {b:.4g}i\n"
+        f"ζ(s) = {re_w:.6g} + {im_w:.6g}i\n"
+        f"|ζ(s)| = {mag_w:.6g}"
+    )
+
+    # Known zeros for reference marks (only meaningful near Re(s)=0.5)
+    try:
+        zeros = find_zeros_on_critical_line(n_zeros=15, dps=30)
+        zero_t = [z.imag for z in zeros if t_min <= z.imag <= t_max]
+    except Exception:
+        zero_t = []
+
+    fig = make_subplots(
+        1, 2,
+        subplot_titles=[
+            f"Path of ζ({a:.3g}+it) in ℂ",
+            f"|ζ({a:.3g}+it)| vs t",
+        ],
+        horizontal_spacing=0.1,
+    )
+
+    # ── Left: complex path ζ(a+it) ──────────────────────────────────────────
+    # Full path dim
+    fig.add_trace(go.Scatter(
+        x=zv.real, y=zv.imag, mode="lines",
+        line=dict(color="#00BFFF", width=1), opacity=0.25, showlegend=False,
+    ), row=1, col=1)
+    # Active segment (near b)
+    idx_b = int(np.searchsorted(t_vals, b))
+    half_seg = max(n_pts // 6, 30)
+    lo, hi = max(0, idx_b - half_seg), min(n_pts, idx_b + half_seg)
+    fig.add_trace(go.Scatter(
+        x=zv[lo:hi].real, y=zv[lo:hi].imag, mode="lines",
+        line=dict(color="#00BFFF", width=2.5), showlegend=False,
+    ), row=1, col=1)
+    # Current point
+    fig.add_trace(go.Scatter(
+        x=[w_pt.real], y=[w_pt.imag], mode="markers",
+        marker=dict(color="#FF8C00", size=12, symbol="circle"),
+        name=f"ζ({a:.3g}+{b:.3g}i)",
+    ), row=1, col=1)
+    # Origin marker
+    fig.add_trace(go.Scatter(
+        x=[0], y=[0], mode="markers",
+        marker=dict(symbol="cross", color="white", size=14, line=dict(width=2)),
+        name="origin (zero)",
+    ), row=1, col=1)
+
+    # ── Right: |ζ(a+it)| vs t ───────────────────────────────────────────────
+    mod = np.abs(zv)
+    fig.add_trace(go.Scatter(
+        x=t_vals, y=mod, mode="lines",
+        line=dict(color="#00BFFF", width=1.8), showlegend=False,
+    ), row=1, col=2)
+    # Known zero markers
+    for zt in zero_t:
+        fig.add_vline(x=zt, line=dict(color="red", dash="dash", width=1),
+                      opacity=0.5, row=1, col=2)
+    # Current b marker
+    fig.add_vline(x=b, line=dict(color="#FF8C00", width=2.5), row=1, col=2)
+    # Value dot on right panel
+    fig.add_trace(go.Scatter(
+        x=[b], y=[mag_w], mode="markers",
+        marker=dict(color="#FF8C00", size=10), showlegend=False,
+    ), row=1, col=2)
+
+    fig.update_layout(
+        **DARK,
+        title=f"ζ(s) at  s = {a:.4g} + {b:.4g}i   →   ζ(s) = {re_w:.5g} + {im_w:.5g}i   |ζ| = {mag_w:.5g}",
+    )
+    fig.update_xaxes(title_text="Re(ζ)", row=1, col=1)
+    fig.update_yaxes(title_text="Im(ζ)", row=1, col=1)
+    fig.update_xaxes(title_text="t  (imaginary part)", row=1, col=2)
+    fig.update_yaxes(title_text="|ζ(a+it)|", row=1, col=2)
+
+    return fig, value_str
 
 
 def _fig_zeros(t_max, n_zeros, res, t_cursor):
@@ -653,7 +952,7 @@ def _fig_strip(im_max, res):
     from mathplt.math.zeta import zeta_grid
     rp = max(20, min(res // 3, 60))
     ip = max(50, min(res, 200))
-    RE, IM, Z = zeta_grid(re_range=(0.02, 0.98), im_range=(0.5, im_max),
+    _, _, Z = zeta_grid(re_range=(0.02, 0.98), im_range=(0.5, im_max),
                            re_points=rp, im_points=ip, dps=25)
     Z_t = Z.T
     re_vals = np.linspace(0.02, 0.98, rp)

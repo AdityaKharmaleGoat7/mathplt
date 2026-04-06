@@ -61,21 +61,54 @@ def domain_color(z_values: np.ndarray, brightness_cycles: float = 1.0) -> np.nda
     return rgb
 
 
-def domain_color_fast(z_values: np.ndarray, brightness_cycles: float = 1.0) -> np.ndarray:
+def domain_color_fast(
+    z_values: np.ndarray,
+    brightness_cycles: float = 1.0,
+    z_input: np.ndarray | None = None,
+) -> np.ndarray:
     """
-    Vectorized domain coloring (faster than domain_color for large grids).
-    Uses HSV → RGB conversion via matplotlib.colors instead of per-pixel colorsys.
+    Domain coloring with smooth magnitude rings and anti-aliased coordinate grid.
+
+    - Hue        : arg(f(z)) → full color wheel
+    - Brightness : smooth sin(log|f(z)|) rings
+    - Saturation : 1.0 for vivid colors
+    - Grid lines : anti-aliased white lines at Re(z_input)=n, Im(z_input)=n;
+                   uses Gaussian falloff so lines are smooth with no jagged edges.
+                   Pass z_input=Z (the input grid) for straight axis-aligned lines.
     """
     from matplotlib.colors import hsv_to_rgb
 
     phase = np.angle(z_values)
-    mag = np.log1p(np.abs(z_values))
-    H = (phase + np.pi) / (2 * np.pi)
-    V = 0.5 + 0.4 * np.sin(mag * np.pi * brightness_cycles)
-    V = np.clip(V, 0.0, 1.0)
-    S = np.full_like(H, 0.85)
+    mag   = np.abs(z_values)
 
-    # matplotlib hsv_to_rgb expects (..., 3) with H in [0,1], S in [0,1], V in [0,1]
+    H = (phase + np.pi) / (2 * np.pi)
+
+    log_mag = np.log(np.maximum(mag, 1e-10))
+    V = 0.5 + 0.48 * np.sin(log_mag * np.pi * brightness_cycles)
+    V = np.clip(V, 0.0, 1.0)
+
+    S = np.ones_like(H)
+
+    # Anti-aliased coordinate grid — drawn on z_input (input plane) so lines are straight
+    grid_src = z_input if z_input is not None else z_values
+    re_z = grid_src.real
+    im_z = grid_src.imag
+    re_dist = np.abs(re_z - np.round(re_z))
+    im_dist = np.abs(im_z - np.round(im_z))
+    # Adaptive pixel width via local z-space pixel spacing
+    re_px = np.abs(np.gradient(re_z, axis=1))
+    im_px = np.abs(np.gradient(im_z, axis=0))
+    sigma_re = np.maximum(re_px * 0.4, 1e-6)
+    sigma_im = np.maximum(im_px * 0.4, 1e-6)
+    # Gaussian alpha: 1.0 on the line, falls off smoothly within ~1 pixel
+    grid_alpha = np.maximum(
+        np.exp(-0.5 * (re_dist / sigma_re) ** 2),
+        np.exp(-0.5 * (im_dist / sigma_im) ** 2),
+    )
+    # Blend toward white: alpha=1 → V=1, S=0 (white); alpha=0 → unchanged
+    V = V + grid_alpha * (1.0 - V)
+    S = S * (1.0 - grid_alpha)
+
     hsv = np.stack([H, S, V], axis=-1)
     return hsv_to_rgb(hsv).astype(np.float32)
 

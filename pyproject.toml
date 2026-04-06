@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "mathplt"
 version = "0.1.0"
 description = "Mathematical animation toolkit — 2D/3D graphs, complex plane, Riemann Hypothesis"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
     "matplotlib>=3.8",
@@ -29,7 +29,7 @@ line-length = 99
 select = ["E", "F", "I"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.11"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
