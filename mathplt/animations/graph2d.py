@@ -33,6 +33,7 @@ class Graph2DAnimator(BaseAnimator):
         config: AnimationConfig,
         equation: str = "sin(x + t)",
         x_range: tuple[float, float] = (-10.0, 10.0),
+        y_range: tuple[float, float] | None = None,
         resolution: int = 800,
         color: str = ACCENT_BLUE,
         show_zero_line: bool = True,
@@ -40,6 +41,7 @@ class Graph2DAnimator(BaseAnimator):
         super().__init__(config)
         self.equation = equation
         self.x_range = x_range
+        self.y_range = y_range   # None → auto-scale per frame
         self.resolution = resolution
         self.color = color
         self.show_zero_line = show_zero_line
@@ -61,10 +63,12 @@ class Graph2DAnimator(BaseAnimator):
         if self.show_zero_line:
             ax.axhline(0, color="gray", linewidth=0.6, alpha=0.5)
 
-        # Initial y-limits (will auto-scale per frame)
-        y0 = self._f(self.x, 0.0)
-        ymin, ymax = auto_ylim(y0)
-        ax.set_ylim(ymin, ymax)
+        # Initial y-limits
+        if self.y_range is not None:
+            ax.set_ylim(self.y_range[0], self.y_range[1])
+        else:
+            y0 = self._f(self.x, 0.0)
+            ax.set_ylim(*auto_ylim(y0))
 
         self._line, = ax.plot([], [], lw=2, color=self.color)
         self._time_text = ax.text(
@@ -78,8 +82,8 @@ class Graph2DAnimator(BaseAnimator):
         y = self._f(self.x, t)
 
         self._line.set_data(self.x, y)
-        ymin, ymax = auto_ylim(y)
-        self.axes[0].set_ylim(ymin, ymax)
+        if self.y_range is None:
+            self.axes[0].set_ylim(*auto_ylim(y))
         self._time_text.set_text(f"t = {t:.2f}")
 
         return [self._line, self._time_text]
