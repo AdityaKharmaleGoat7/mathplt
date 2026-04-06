@@ -573,7 +573,7 @@ def _fig_2d(eq, xr, t, res):
                                line=dict(color="#00BFFF", width=2.5)))
     fig.add_hline(y=0, line=dict(color="gray", width=0.5, dash="dot"))
     fig.update_layout(**DARK, title=f"f(x,t) = {eq}   [t = {t:.2f}]",
-                      xaxis_title="x", yaxis_title="f(x, t)")
+                      xaxis_title="x", yaxis_title="f(x, t)", dragmode="pan")
     return fig
 
 
@@ -586,7 +586,8 @@ def _fig_3d(eq, xr, yr, res, cmap):
     Z[~np.isfinite(Z)] = np.nan
     fig = go.Figure(go.Surface(x=X, y=Y, z=Z, colorscale=cmap, opacity=0.95))
     fig.update_layout(**DARK, title=f"f(x,y) = {eq}",
-                      scene=dict(xaxis_title="x", yaxis_title="y", zaxis_title="f"))
+                      scene=dict(xaxis_title="x", yaxis_title="y", zaxis_title="f",
+                                 uirevision="keep"))
     return fig
 
 
