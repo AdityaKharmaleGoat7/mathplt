@@ -1,8 +1,8 @@
 # mathplt
 
-A mathematical animation toolkit for visualizing complex functions, 2D/3D graphs, and Riemann Hypothesis structures — built for Jupyter notebooks and an interactive web app.
+A mathematical animation toolkit for visualizing complex functions, 2D and 3D graphs, and Riemann Hypothesis structures. Built for Jupyter notebooks and an interactive web app.
 
----
+<br>
 
 ## Setup
 
@@ -24,56 +24,123 @@ Run Jupyter notebooks:
 jupyter lab
 ```
 
----
+<br>
 
 ## Animations
 
-### 2D Graph   f(x, t)
+<br>
 
-Animate any equation where `x` is the spatial axis and `t` advances each frame.
+### 2D Graph f(x, t)
 
-![2D Graph Animation](assets/graph2d.gif)
+Animate any equation where `x` is the spatial axis and `t` advances each frame. Every frame redraws the curve, so anything that depends on `t` becomes a live animation.
 
-**Example equations**
+<p align="center">
+  <img src="assets/graph2d.gif" width="720" alt="2D Graph Animation"/>
+</p>
+
+<p align="center">
+  <img src="assets/graph2d.png" width="720" alt="2D Graph Screenshot"/>
+</p>
+
+#### How it works
+
+| Term | What it controls | Example |
+|------|-----------------|---------|
+| `A * sin(...)` | Amplitude, controls peak height | `2 * sin(x)` doubles height |
+| `sin(k*x)` | Spatial frequency, peaks per unit | `sin(3*x)` is 3x denser |
+| `sin(x - v*t)` | Wave travelling right at speed v | `sin(x - 2*t)` |
+| `sin(x + v*t)` | Wave travelling left at speed v | `sin(x + t)` |
+| `sin(x) * cos(t)` | Standing wave, nodes stay fixed | nodes at multiples of π |
+| `* exp(-a*x**2)` | Gaussian envelope, localises the wave | `sin(x+t) * exp(-0.1*x**2)` |
+| `f(x) + g(x)` | Superposition, interference and beats | `sin(x+t) + sin(x+1.05*t)` |
+
+#### Equations to try
 
 ```
 sin(x + t)
+sin(x) * cos(t)
 sin(x + t) * exp(-0.1 * x**2)
 cos(3*x - 2*t) + 0.5 * sin(5*x + t)
 sin(x * t) / (1 + x**2)
+exp(-0.05*(x - 3*t)**2)
+sin(x + t) + sin(x + 1.05*t)
+tanh(x - 2*t)
 ```
 
----
+<br>
 
-### 3D Surface   f(x, y)
+### 3D Surface f(x, y)
 
-Rotating 3D surface plots with full mouse drag rotation in the web app.
+Rotating 3D surface plots. Drag to orbit, scroll to zoom, use the Play button for a continuous 360° rotation. Color encodes height via the colorbar.
 
-![3D Surface](assets/graph3d.gif)
+<p align="center">
+  <img src="assets/graph3d.gif" width="720" alt="3D Surface Animation"/>
+</p>
 
-**Example equations**
+<p align="center">
+  <img src="assets/graph3d.png" width="720" alt="3D Surface Screenshot"/>
+</p>
+
+#### Reading the surface
+
+| Feature | What it means |
+|---------|--------------|
+| Peak (local max) | ∂f/∂x = 0 and ∂f/∂y = 0, curves downward in all directions |
+| Valley (local min) | Same conditions, curves upward |
+| Saddle point | Curves up in one direction, down in another |
+| Flat ridge | Constant along one axis, varying along the other |
+| Oscillating grid | `sin(x)*cos(y)`, periodic in both directions |
+| Decaying amplitude | `exp(-(x²+y²))` shrinks surface toward zero from origin |
+
+#### Equations to try
 
 ```
 sin(sqrt(x**2 + y**2))
 exp(-0.1*(x**2 + y**2)) * cos(x + y)
 sin(x) * cos(y)
 x * exp(-x**2 - y**2)
+(1 - 2*(x**2+y**2)) * exp(-(x**2+y**2))
+sin(x**2 + y**2) / (x**2 + y**2 + 1)
 ```
 
----
+> Tip: `sin(sqrt(x**2 + y**2))` with range −6 to 6 gives beautiful circular ripples from the origin.
 
-### Complex Plane   f(z)
+<br>
 
-Domain coloring maps every point in the complex plane to a color:
+### Complex Plane f(z)
 
-**Hue** encodes `arg(f(z))` — the angle/phase of the output  
-**Brightness rings** encode `log|f(z)|` — each ring is a factor of `e`  
-**Dark spots** are zeros of `f(z)`  
-**Bright chaotic patches** are poles  
+Domain coloring maps every point in the complex plane to a color. Phase (hue) and magnitude (brightness rings) are encoded simultaneously, making zeros, poles, and winding numbers instantly visible.
 
-![Complex Plane Domain Coloring](assets/complex_plane.gif)
+<p align="center">
+  <img src="assets/complex_plane.gif" width="720" alt="Complex Plane Animation"/>
+</p>
 
-**Example equations** (use variable `z`)
+<p align="center">
+  <img src="assets/complex_plane.png" width="720" alt="Complex Plane Screenshot"/>
+</p>
+
+#### How to read the colors
+
+| Visual feature | What it encodes | Formula |
+|---------------|----------------|---------|
+| Hue (color wheel) | Phase / argument of output | `arg(f(z))` in [−π, π] |
+| Brightness rings | Magnitude on a log scale, each ring is ×e | `log(1 + |f(z)|)` |
+| Dark pinch points | Zeros where f(z) = 0 | All colors converge inward |
+| Bright chaos | Poles where |f(z)| → ∞ | Colors cycle rapidly outward |
+| Color cycles per loop | Winding number / order | One full cycle = order 1 zero or pole |
+
+#### Phase color reference
+
+| Color | Phase |
+|-------|-------|
+| Red | 0 |
+| Yellow | π/3 |
+| Green | 2π/3 |
+| Cyan | ±π |
+| Blue | −2π/3 |
+| Magenta | −π/3 |
+
+#### Equations to try (variable `z`)
 
 ```
 z**2
@@ -83,9 +150,12 @@ z**4 - 1
 sin(z)
 exp(z)
 log(z)
+1 / z
+(z - 1j) / (z + 1j)
+z * exp(-abs(z)**2 / 4)
 ```
 
-Animated (include `t`, use Play button):
+#### Animated (include `t`, use Play button)
 
 ```
 z**2 + t * 0.3
@@ -93,58 +163,83 @@ sin(z + t)
 z**3 + t * z
 ```
 
----
+<br>
 
 ### Riemann Hypothesis
 
-> *"The non-trivial zeros of ζ(s) have real part equal to 1/2."*  — Bernhard Riemann, 1859
+> *"The nontrivial zeros of ζ(s) have real part equal to 1/2."*  Bernhard Riemann, 1859
 
-The **Riemann zeta function** is defined for `Re(s) > 1` as:
+The **Riemann zeta function** is defined for `Re(s) > 1` as the Dirichlet series:
 
 ```
 ζ(s) = 1 + 1/2^s + 1/3^s + 1/4^s + ...
 ```
 
-and extended to the entire complex plane via analytic continuation.
+and extended to the entire complex plane via analytic continuation. It is one of the most studied functions in mathematics. Its zeros encode the distribution of prime numbers, and the **Riemann Hypothesis** (that all nontrivial zeros lie on the line `Re(s) = ½`) has been open since 1859 and carries a $1 million Millennium Prize.
+
+<br>
 
 #### Zeros on the Critical Line
 
-The path of `ζ(½ + it)` as `t` increases. Every time the path **crosses the origin**, there is a nontrivial zero. The Riemann Hypothesis says all nontrivial zeros satisfy `Re(s) = ½`.
+Traces the path of `ζ(½ + it)` in the complex plane as `t` grows. Every time the orange dot crosses the origin (white cross), a nontrivial zero of ζ(s) occurs. Red dashed lines mark the zero locations on the magnitude plot at right.
 
-![Riemann Zeros](assets/riemann_zeros.gif)
+<p align="center">
+  <img src="assets/riemann_zeros.gif" width="720" alt="Riemann Zeros Animation"/>
+</p>
 
-Known zeros (imaginary parts): `14.135, 21.022, 25.011, 30.425, 32.935, ...`
+<p align="center">
+  <img src="assets/riemann_zeros.png" width="720" alt="Riemann Zeros Screenshot"/>
+</p>
+
+Known zeros (imaginary parts of the first eight):
+
+| # | Im(s) |
+|---|-------|
+| 1 | 14.135 |
+| 2 | 21.022 |
+| 3 | 25.011 |
+| 4 | 30.425 |
+| 5 | 32.935 |
+| 6 | 37.586 |
+| 7 | 40.919 |
+| 8 | 43.327 |
+
+<br>
 
 #### Critical Strip Heatmap
 
-Magnitude and phase of `ζ(s)` over the critical strip `0 < Re(s) < 1`.  
-Zeros appear as dark spots along the cyan dashed critical line `Re(s) = ½`.
+Shows `log(1+|ζ(s)|)` and `arg(ζ(s))` as heatmaps over the critical strip `0 < Re(s) < 1`. Zeros appear as dark spots on the magnitude map and as phase vortices on the argument map. The cyan dashed line marks the critical line `Re(s) = ½` where the Riemann Hypothesis predicts all nontrivial zeros lie.
 
-![Critical Strip](assets/critical_strip.png)
+<p align="center">
+  <img src="assets/critical_strip.png" width="720" alt="Critical Strip Heatmap"/>
+</p>
 
-> The cyan dashed line marks the critical line Re(s) = ½. Dark spots along it are zeros of ζ(s).
+| Region | Significance |
+|--------|-------------|
+| `Re(s) < 0` | Trivial zeros at negative even integers; ζ is well understood |
+| `0 < Re(s) < 1` | Critical strip, all nontrivial zeros live here |
+| `Re(s) = ½` | Critical line, Riemann conjectured all zeros are exactly here |
+| `Re(s) > 1` | `ζ(s) = Σ 1/nˢ` converges; no zeros exist |
 
-#### Winding Number
+<br>
 
-The **argument principle** states:
+#### Winding Number (Argument Principle)
+
+The **argument principle** states the number of zeros of ζ(s) inside a closed contour C equals the winding number of the image ζ(C) around the origin:
 
 ```
-N(zeros inside C) = (1/2πi) ∮ ζ'(s)/ζ(s) ds
+N(zeros inside C) = (1/2π) × total change in arg(ζ(C))
 ```
 
-As a rectangular contour expands upward in the s-plane, the image `ζ(C)` in the w-plane winds around the origin once per enclosed zero. You can watch the winding count increment live.
+As the rectangular contour expands upward in the s-plane, the image `ζ(C)` in the w-plane winds around the origin once per enclosed zero. Watch the winding count increment live as you raise the contour top slider.
 
-#### Analytic Continuation
-
-Shows how the Dirichlet series `Σ n^{-s}` (valid only for `Re(s) > 1`) compares with the full analytic continuation of `ζ(s)` across the entire complex plane.
-
----
+<br>
 
 ## Project Structure
 
 ```
 mathplt/
-  core/          BaseAnimator, AnimationRegistry, EquationParser (AST safe)
+  core/          BaseAnimator, AnimationRegistry, EquationParser (AST safe eval)
   math/          zeta.py (mpmath), complex_ops.py (domain coloring), numerics.py
   animations/    graph2d, graph3d, complex_plane
     riemann/     zeros, critical_strip, zeta_surface, winding_number, continuation
@@ -160,14 +255,14 @@ webapp/
   app.py         Dash + Plotly web app (rotate, zoom, pan, animate)
 
 assets/
-  graph2d.png
-  graph3d.png
-  complex_plane.png
-  riemann_zeros.png
+  graph2d.png / graph2d.gif
+  graph3d.png / graph3d.gif
+  complex_plane.png / complex_plane.gif
+  riemann_zeros.png / riemann_zeros.gif
   critical_strip.png
 ```
 
----
+<br>
 
 ## Extending
 
@@ -190,9 +285,9 @@ class MyAnimator(BaseAnimator):
         return [self._line]
 ```
 
-It will be auto-discovered with no other changes needed.
+It will be auto discovered with no other changes needed.
 
----
+<br>
 
 ## Tech Stack
 
@@ -202,4 +297,5 @@ It will be auto-discovered with no other changes needed.
 | plotly + dash | Interactive web app |
 | mpmath | High precision complex math (zeta function) |
 | numpy | Numerical arrays |
+| scipy | Numerical utilities |
 | ipywidgets | Jupyter equation input widgets |
