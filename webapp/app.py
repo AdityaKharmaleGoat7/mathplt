@@ -185,13 +185,28 @@ app.layout = html.Div(style={
         }, children=[
 
             # Brand
-            html.Div(style={"marginBottom": "14px"}, children=[
-                html.Div(style={"display": "flex", "alignItems": "baseline", "gap": "8px"}, children=[
-                    html.Span("Manifold", style={"color": "#58a6ff", "fontSize": "20px", "fontWeight": "700"}),
-                    html.Span("v0.1", style={"color": "#484f58", "fontSize": "11px"}),
+            html.Div(style={"marginBottom": "16px", "textAlign": "center"}, children=[
+                html.Img(src="/assets/logo.png", style={
+                    "width": "64px", "height": "64px",
+                    "marginBottom": "8px", "opacity": "0.95",
+                }),
+                html.Div(style={
+                    "display": "flex", "alignItems": "baseline",
+                    "justifyContent": "center", "gap": "8px",
+                }, children=[
+                    html.Span("Manifold", style={
+                        "color": "#58a6ff", "fontSize": "22px",
+                        "fontWeight": "700", "letterSpacing": "0.02em",
+                    }),
+                    html.Span("v0.1", style={
+                        "color": "#484f58", "fontSize": "11px",
+                    }),
                 ]),
-                html.Div("interactive mathematical visualizer",
-                         style={"color": "#6e7681", "fontSize": "11px", "marginTop": "2px"}),
+                html.Div("Own the space", style={
+                    "color": "#8b949e", "fontSize": "11px",
+                    "marginTop": "3px", "fontStyle": "italic",
+                    "letterSpacing": "0.12em",
+                }),
             ]),
 
             # ── Mode selector ─────────────────────────────────────────────────
@@ -356,9 +371,20 @@ app.layout = html.Div(style={
                 "marginTop": "auto", "paddingTop": "16px",
                 "borderTop": "1px solid #21262d",
                 "fontSize": "10px", "color": "#484f58", "lineHeight": "1.8",
+                "textAlign": "center",
             }, children=[
-                html.Div("Manifold -- mathematical animation toolkit"),
-                html.Div("Built with Dash, Plotly, NumPy, mpmath"),
+                html.Img(src="/assets/logo.png", style={
+                    "width": "20px", "height": "20px",
+                    "verticalAlign": "middle", "marginRight": "6px",
+                    "opacity": "0.5",
+                }),
+                html.Span("Manifold", style={
+                    "verticalAlign": "middle", "fontWeight": "600",
+                }),
+                html.Div("Own the space", style={
+                    "color": "#30363d", "fontSize": "9px",
+                    "fontStyle": "italic", "marginTop": "2px",
+                }),
             ]),
         ]),
 
