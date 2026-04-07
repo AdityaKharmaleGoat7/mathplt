@@ -24,7 +24,7 @@ def make_xt_function(expression: str) -> Callable[[np.ndarray, float], np.ndarra
     Compile an equation string referencing 'x' and 't' into a callable f(x, t).
     This is a thin wrapper for convenience; full validation happens in EquationParser.
     """
-    from mathplt.core.equation_parser import EquationParser
+    from manifold.core.equation_parser import EquationParser
     return EquationParser().parse_xt(expression)
 
 

@@ -1,27 +1,50 @@
-# mathplt
+# Manifold
 
-A mathematical animation toolkit for visualizing complex functions, 2D and 3D graphs, and Riemann Hypothesis structures. Built for Jupyter notebooks and an interactive web app.
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+A mathematical animation toolkit for visualizing complex functions, 2D/3D graphs, and Riemann Hypothesis structures. Built for interactive Jupyter notebooks and a live web app.
+
+**Key features:**
+- Safe equation input via AST-whitelisted parser (no eval vulnerabilities)
+- Domain coloring for complex function visualization
+- Riemann zeta function explorations (zeros, critical strip, winding numbers)
+- Interactive web app with real-time animation
+- Extensible animation framework with auto-discovery
 
 <br>
 
-## Setup
+## Quick Start
 
 ```bash
-pip install -e ".[notebook,webapp]"
+# Clone the repo
+git clone https://github.com/yourusername/Manifold.git
+cd Manifold
+
+# Install with all extras
+pip install -e ".[notebook,webapp,dev]"
+
+# Run the web app
+python -m webapp.app
+# Open http://localhost:8050
+
+# Or launch Jupyter notebooks
+jupyter lab
 ```
 
-Run the web app:
+<br>
+
+## Web App
+
+The interactive web app lets you explore all visualizations with real-time controls:
+
+- **Equation presets** -- click to load common equations instantly
+- **Live animation** -- Play/Pause with adjustable speed
+- **7 visualization modes** -- 2D graphs, 3D surfaces, complex plane, and 4 Riemann zeta views
+- **Resolution control** -- trade compute time for sharpness
 
 ```bash
 python -m webapp.app
-```
-
-Open **http://localhost:8050** in your browser.
-
-Run Jupyter notebooks:
-
-```bash
-jupyter lab
 ```
 
 <br>
@@ -32,7 +55,7 @@ jupyter lab
 
 ### 2D Graph f(x, t)
 
-Animate any equation where `x` is the spatial axis and `t` advances each frame. Every frame redraws the curve, so anything that depends on `t` becomes a live animation.
+Animate any equation where `x` is the spatial axis and `t` advances each frame.
 
 <p align="center">
   <img src="assets/graph2d.gif" width="720" alt="2D Graph Animation"/>
@@ -50,7 +73,7 @@ Animate any equation where `x` is the spatial axis and `t` advances each frame. 
 | `sin(k*x)` | Spatial frequency, peaks per unit | `sin(3*x)` is 3x denser |
 | `sin(x - v*t)` | Wave travelling right at speed v | `sin(x - 2*t)` |
 | `sin(x + v*t)` | Wave travelling left at speed v | `sin(x + t)` |
-| `sin(x) * cos(t)` | Standing wave, nodes stay fixed | nodes at multiples of π |
+| `sin(x) * cos(t)` | Standing wave, nodes stay fixed | nodes at multiples of pi |
 | `* exp(-a*x**2)` | Gaussian envelope, localises the wave | `sin(x+t) * exp(-0.1*x**2)` |
 | `f(x) + g(x)` | Superposition, interference and beats | `sin(x+t) + sin(x+1.05*t)` |
 
@@ -71,7 +94,7 @@ tanh(x - 2*t)
 
 ### 3D Surface f(x, y)
 
-Rotating 3D surface plots. Drag to orbit, scroll to zoom, use the Play button for a continuous 360° rotation. Color encodes height via the colorbar.
+Rotating 3D surface plots. Drag to orbit, scroll to zoom, use the Play button for a continuous 360 degree rotation. Color encodes height via the colorbar.
 
 <p align="center">
   <img src="assets/graph3d.gif" width="720" alt="3D Surface Animation"/>
@@ -80,17 +103,6 @@ Rotating 3D surface plots. Drag to orbit, scroll to zoom, use the Play button fo
 <p align="center">
   <img src="assets/graph3d.png" width="720" alt="3D Surface Screenshot"/>
 </p>
-
-#### Reading the surface
-
-| Feature | What it means |
-|---------|--------------|
-| Peak (local max) | ∂f/∂x = 0 and ∂f/∂y = 0, curves downward in all directions |
-| Valley (local min) | Same conditions, curves upward |
-| Saddle point | Curves up in one direction, down in another |
-| Flat ridge | Constant along one axis, varying along the other |
-| Oscillating grid | `sin(x)*cos(y)`, periodic in both directions |
-| Decaying amplitude | `exp(-(x²+y²))` shrinks surface toward zero from origin |
 
 #### Equations to try
 
@@ -102,8 +114,6 @@ x * exp(-x**2 - y**2)
 (1 - 2*(x**2+y**2)) * exp(-(x**2+y**2))
 sin(x**2 + y**2) / (x**2 + y**2 + 1)
 ```
-
-> Tip: `sin(sqrt(x**2 + y**2))` with range −6 to 6 gives beautiful circular ripples from the origin.
 
 <br>
 
@@ -123,36 +133,21 @@ Domain coloring maps every point in the complex plane to a color. Phase (hue) an
 
 | Visual feature | What it encodes | Formula |
 |---------------|----------------|---------|
-| Hue (color wheel) | Phase / argument of output | `arg(f(z))` in [−π, π] |
-| Brightness rings | Magnitude on a log scale, each ring is ×e | `log(1 + |f(z)|)` |
+| Hue (color wheel) | Phase / argument of output | `arg(f(z))` in [-pi, pi] |
+| Brightness rings | Magnitude on a log scale, each ring is x e | `log(1 + \|f(z)\|)` |
 | Dark pinch points | Zeros where f(z) = 0 | All colors converge inward |
-| Bright chaos | Poles where |f(z)| → ∞ | Colors cycle rapidly outward |
-| Color cycles per loop | Winding number / order | One full cycle = order 1 zero or pole |
-
-#### Phase color reference
-
-| Color | Phase |
-|-------|-------|
-| Red | 0 |
-| Yellow | π/3 |
-| Green | 2π/3 |
-| Cyan | ±π |
-| Blue | −2π/3 |
-| Magenta | −π/3 |
+| Bright chaos | Poles where \|f(z)\| -> infinity | Colors cycle rapidly outward |
 
 #### Equations to try (variable `z`)
 
 ```
 z**2
 z**3 - 1
-z**4 - 1
 (z**2 - 1) / (z**2 + 1)
 sin(z)
 exp(z)
-log(z)
 1 / z
 (z - 1j) / (z + 1j)
-z * exp(-abs(z)**2 / 4)
 ```
 
 #### Animated (include `t`, use Play button)
@@ -167,21 +162,21 @@ z**3 + t * z
 
 ### Riemann Hypothesis
 
-> *"The nontrivial zeros of ζ(s) have real part equal to 1/2."*  Bernhard Riemann, 1859
+> *"The nontrivial zeros of zeta(s) have real part equal to 1/2."* -- Bernhard Riemann, 1859
 
-The **Riemann zeta function** is defined for `Re(s) > 1` as the Dirichlet series:
+The **Riemann zeta function** is defined for `Re(s) > 1` as:
 
 ```
-ζ(s) = 1 + 1/2^s + 1/3^s + 1/4^s + ...
+zeta(s) = 1 + 1/2^s + 1/3^s + 1/4^s + ...
 ```
 
-and extended to the entire complex plane via analytic continuation. It is one of the most studied functions in mathematics. Its zeros encode the distribution of prime numbers, and the **Riemann Hypothesis** (that all nontrivial zeros lie on the line `Re(s) = ½`) has been open since 1859 and carries a $1 million Millennium Prize.
+It is extended to the entire complex plane via analytic continuation. Its zeros encode the distribution of prime numbers, and the **Riemann Hypothesis** has been open since 1859 (Millennium Prize: $1 million).
 
 <br>
 
 #### Zeros on the Critical Line
 
-Traces the path of `ζ(½ + it)` in the complex plane as `t` grows. Every time the orange dot crosses the origin (white cross), a nontrivial zero of ζ(s) occurs. Red dashed lines mark the zero locations on the magnitude plot at right.
+Traces the path of `zeta(1/2 + it)` in the complex plane as `t` grows. Every time the orange dot crosses the origin, a nontrivial zero occurs.
 
 <p align="center">
   <img src="assets/riemann_zeros.gif" width="720" alt="Riemann Zeros Animation"/>
@@ -191,75 +186,34 @@ Traces the path of `ζ(½ + it)` in the complex plane as `t` grows. Every time t
   <img src="assets/riemann_zeros.png" width="720" alt="Riemann Zeros Screenshot"/>
 </p>
 
-Known zeros (imaginary parts of the first eight):
-
-| # | Im(s) |
-|---|-------|
-| 1 | 14.135 |
-| 2 | 21.022 |
-| 3 | 25.011 |
-| 4 | 30.425 |
-| 5 | 32.935 |
-| 6 | 37.586 |
-| 7 | 40.919 |
-| 8 | 43.327 |
-
-<br>
-
 #### Critical Strip Heatmap
 
-Shows `log(1+|ζ(s)|)` and `arg(ζ(s))` as heatmaps over the critical strip `0 < Re(s) < 1`. Zeros appear as dark spots on the magnitude map and as phase vortices on the argument map. The cyan dashed line marks the critical line `Re(s) = ½` where the Riemann Hypothesis predicts all nontrivial zeros lie.
+Shows `log(1+|zeta(s)|)` and `arg(zeta(s))` as heatmaps over `0 < Re(s) < 1`. Zeros appear as dark spots (magnitude) and phase vortices (argument).
 
 <p align="center">
   <img src="assets/critical_strip.png" width="720" alt="Critical Strip Heatmap"/>
 </p>
 
-| Region | Significance |
-|--------|-------------|
-| `Re(s) < 0` | Trivial zeros at negative even integers; ζ is well understood |
-| `0 < Re(s) < 1` | Critical strip, all nontrivial zeros live here |
-| `Re(s) = ½` | Critical line, Riemann conjectured all zeros are exactly here |
-| `Re(s) > 1` | `ζ(s) = Σ 1/nˢ` converges; no zeros exist |
-
-<br>
-
 #### Winding Number (Argument Principle)
 
-The **argument principle** states the number of zeros of ζ(s) inside a closed contour C equals the winding number of the image ζ(C) around the origin:
-
-```
-N(zeros inside C) = (1/2π) × total change in arg(ζ(C))
-```
-
-As the rectangular contour expands upward in the s-plane, the image `ζ(C)` in the w-plane winds around the origin once per enclosed zero. Watch the winding count increment live as you raise the contour top slider.
+The number of zeros inside a closed contour equals the winding number of the image around the origin. Watch the count increment as you raise the contour.
 
 <br>
 
 ## Project Structure
 
 ```
-mathplt/
+manifold/
   core/          BaseAnimator, AnimationRegistry, EquationParser (AST safe eval)
   math/          zeta.py (mpmath), complex_ops.py (domain coloring), numerics.py
   animations/    graph2d, graph3d, complex_plane
     riemann/     zeros, critical_strip, zeta_surface, winding_number, continuation
   jupyter/       EquationWidget, AnimationWidget
+  config.py      Style constants, cache settings
 
-notebooks/
-  01_graph2d.ipynb
-  02_graph3d.ipynb
-  03_complex_plane.ipynb
-  04_riemann.ipynb
-
-webapp/
-  app.py         Dash + Plotly web app (rotate, zoom, pan, animate)
-
-assets/
-  graph2d.png / graph2d.gif
-  graph3d.png / graph3d.gif
-  complex_plane.png / complex_plane.gif
-  riemann_zeros.png / riemann_zeros.gif
-  critical_strip.png
+notebooks/       4 interactive Jupyter notebooks
+webapp/          Dash + Plotly web app
+tests/           pytest suite
 ```
 
 <br>
@@ -269,9 +223,9 @@ assets/
 Adding a new animation is one file:
 
 ```python
-# mathplt/animations/my_animation.py
-from mathplt.core.animator import BaseAnimator, AnimationConfig
-from mathplt.core.registry import AnimationRegistry
+# manifold/animations/my_animation.py
+from manifold.core.animator import BaseAnimator, AnimationConfig
+from manifold.core.registry import AnimationRegistry
 
 @AnimationRegistry.register
 class MyAnimator(BaseAnimator):
@@ -285,7 +239,7 @@ class MyAnimator(BaseAnimator):
         return [self._line]
 ```
 
-It will be auto discovered with no other changes needed.
+It will be auto-discovered with no other changes needed.
 
 <br>
 
@@ -299,3 +253,47 @@ It will be auto discovered with no other changes needed.
 | numpy | Numerical arrays |
 | scipy | Numerical utilities |
 | ipywidgets | Jupyter equation input widgets |
+
+<br>
+
+## Development
+
+```bash
+# Install dev dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Lint
+ruff check .
+
+# Type check
+mypy manifold/
+```
+
+<br>
+
+## Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Make your changes and add tests
+4. Run `pytest` and `ruff check .` to verify
+5. Commit and push to your fork
+6. Open a Pull Request
+
+**Areas where contributions are especially welcome:**
+- New animation types (add to `Manifold/animations/`)
+- Performance optimizations for zeta computations
+- Additional notebook examples
+- UI/UX improvements to the web app
+- Documentation improvements
+
+<br>
+
+## License
+
+[MIT](LICENSE)

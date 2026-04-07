@@ -6,10 +6,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 — registers 3d projection
 
-from mathplt.core.animator import AnimationConfig, BaseAnimator
-from mathplt.core.equation_parser import EquationParser
-from mathplt.core.registry import AnimationRegistry
-from mathplt.config import SURFACE_CMAP
+from manifold.core.animator import AnimationConfig, BaseAnimator
+from manifold.core.equation_parser import EquationParser
+from manifold.core.registry import AnimationRegistry
+from manifold.config import SURFACE_CMAP
 
 
 @AnimationRegistry.register

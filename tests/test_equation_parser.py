@@ -10,7 +10,7 @@ Critical tests:
 import numpy as np
 import pytest
 
-from mathplt.core.equation_parser import EquationParser
+from manifold.core.equation_parser import EquationParser
 
 
 class TestParseSingleVariable:
@@ -91,7 +91,7 @@ class TestSecurityRejections:
     """Ensure disallowed constructs are blocked."""
 
     def _should_fail(self, expr, variables=frozenset({"x"})):
-        from mathplt.core.equation_parser import _validate_ast
+        from manifold.core.equation_parser import _validate_ast
         with pytest.raises(ValueError):
             _validate_ast(expr, extra_vars=variables)
 

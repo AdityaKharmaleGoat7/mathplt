@@ -15,10 +15,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-from mathplt.core.animator import AnimationConfig, BaseAnimator
-from mathplt.core.registry import AnimationRegistry
-from mathplt.math.zeta import find_zeros_on_critical_line, zeta_on_critical_line
-from mathplt.config import ACCENT_BLUE, ACCENT_ORANGE, ACCENT_GREEN
+from manifold.core.animator import AnimationConfig, BaseAnimator
+from manifold.core.registry import AnimationRegistry
+from manifold.math.zeta import find_zeros_on_critical_line, zeta_on_critical_line
+from manifold.config import ACCENT_BLUE, ACCENT_ORANGE, ACCENT_GREEN
 
 
 @AnimationRegistry.register

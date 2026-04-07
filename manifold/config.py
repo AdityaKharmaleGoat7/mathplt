@@ -18,4 +18,4 @@ HIGH_DPS = 50          # for verifying zero locations
 
 # Cache directory for expensive zeta computations
 import os
-CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "mathplt")
+CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "manifold")

@@ -5,11 +5,11 @@ from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
 
-from mathplt.core.animator import AnimationConfig, BaseAnimator
-from mathplt.core.equation_parser import EquationParser
-from mathplt.core.registry import AnimationRegistry
-from mathplt.math.numerics import auto_ylim
-from mathplt.config import ACCENT_BLUE, GRID_ALPHA
+from manifold.core.animator import AnimationConfig, BaseAnimator
+from manifold.core.equation_parser import EquationParser
+from manifold.core.registry import AnimationRegistry
+from manifold.math.numerics import auto_ylim
+from manifold.config import ACCENT_BLUE, GRID_ALPHA
 
 
 @AnimationRegistry.register

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
-from mathplt.core.animator import AnimationConfig, BaseAnimator
-from mathplt.core.equation_parser import EquationParser
-from mathplt.core.registry import AnimationRegistry
-from mathplt.math.complex_ops import complex_grid, domain_color_fast
+from manifold.core.animator import AnimationConfig, BaseAnimator
+from manifold.core.equation_parser import EquationParser
+from manifold.core.registry import AnimationRegistry
+from manifold.math.complex_ops import complex_grid, domain_color_fast
 
 
 @AnimationRegistry.register
@@ -53,7 +53,7 @@ class ComplexPlaneAnimator(BaseAnimator):
         self._has_t = "t" in equation
         if self._has_t:
             # Parse as f(z, t) — needs special handling since parse_complex only knows z
-            from mathplt.core.equation_parser import ALLOWED_NAMES, _validate_ast
+            from manifold.core.equation_parser import ALLOWED_NAMES, _validate_ast
             _validate_ast(equation, extra_vars={"z", "t"})
             ns = dict(ALLOWED_NAMES)
             code = compile(equation, "<equation>", "eval")
@@ -74,8 +74,9 @@ class ComplexPlaneAnimator(BaseAnimator):
         ax.axhline(0, color="white", lw=0.3, alpha=0.4)
         ax.axvline(0, color="white", lw=0.3, alpha=0.4)
 
-        # Initial image
+        # Initial image — mask infinities from poles
         w = self._f(self._Z, 0.0) if self._has_t else self._f(self._Z)
+        w = np.where(np.isfinite(w), w, np.nan + 0j)
         rgb = domain_color_fast(w, brightness_cycles=self.brightness_cycles)
 
         extent = [self.re_range[0], self.re_range[1], self.im_range[0], self.im_range[1]]
@@ -91,6 +92,7 @@ class ComplexPlaneAnimator(BaseAnimator):
     def update(self, frame: int) -> list:
         t = frame / self.config.fps
         w = self._f(self._Z, t) if self._has_t else self._f(self._Z)
+        w = np.where(np.isfinite(w), w, np.nan + 0j)
         rgb = domain_color_fast(w, brightness_cycles=self.brightness_cycles)
         self._im.set_data(rgb)
         if self._has_t:

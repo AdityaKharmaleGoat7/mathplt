@@ -21,10 +21,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-from mathplt.core.animator import AnimationConfig, BaseAnimator
-from mathplt.core.registry import AnimationRegistry
-from mathplt.math.zeta import zeta_grid, dirichlet_series_partial_sum
-from mathplt.math.complex_ops import domain_color_fast
+from manifold.core.animator import AnimationConfig, BaseAnimator
+from manifold.core.registry import AnimationRegistry
+from manifold.math.zeta import zeta_grid, dirichlet_series_partial_sum
+from manifold.math.complex_ops import domain_color_fast
 
 
 @AnimationRegistry.register

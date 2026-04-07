@@ -2,7 +2,7 @@
 Riemann Zeta function computations backed by mpmath.
 
 All functions return numpy arrays for plotting.
-Expensive grid computations are cached to ~/.cache/mathplt/ using numpy save/load.
+Expensive grid computations are cached to ~/.cache/manifold/ using numpy save/load.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from typing import Sequence
 
 import numpy as np
 
-from mathplt.config import CACHE_DIR, DEFAULT_DPS, HIGH_DPS
+from manifold.config import CACHE_DIR, DEFAULT_DPS, HIGH_DPS
 
 
 def _cache_path(key: str) -> Path:
@@ -45,7 +45,7 @@ def zeta_grid(
         re_points:  Number of points along real axis
         im_points:  Number of points along imaginary axis
         dps:        mpmath decimal places of precision
-        use_cache:  Load from ~/.cache/mathplt/ if available
+        use_cache:  Load from ~/.cache/manifold/ if available
 
     Returns:
         RE: (re_points, im_points) real parts of s
@@ -75,8 +75,11 @@ def zeta_grid(
     done = 0
     for i, re in enumerate(re_vals):
         for j, im in enumerate(im_vals):
-            s = mpmath.mpc(float(re), float(im))
-            Z[i, j] = complex(mpmath.zeta(s))
+            try:
+                s = mpmath.mpc(float(re), float(im))
+                Z[i, j] = complex(mpmath.zeta(s))
+            except (ValueError, ZeroDivisionError, mpmath.libmp.libhyper.NoConvergence):
+                Z[i, j] = complex(np.nan, np.nan)
             done += 1
         if (i + 1) % max(1, re_points // 10) == 0:
             print(f"  zeta_grid: {done}/{total} points computed...", end="\r")
@@ -115,8 +118,11 @@ def zeta_on_critical_line(
 
     result = np.zeros(len(t_values), dtype=complex)
     for i, t in enumerate(t_values):
-        s = mpmath.mpc(0.5, float(t))
-        result[i] = complex(mpmath.zeta(s))
+        try:
+            s = mpmath.mpc(0.5, float(t))
+            result[i] = complex(mpmath.zeta(s))
+        except (ValueError, ZeroDivisionError):
+            result[i] = complex(np.nan, np.nan)
         if (i + 1) % max(1, len(t_values) // 10) == 0:
             print(f"  zeta_on_critical_line: {i+1}/{len(t_values)}...", end="\r")
     print()
@@ -167,8 +173,11 @@ def zeta_on_contour(
 
     result = np.zeros(len(contour_points), dtype=complex)
     for i, s in enumerate(contour_points):
-        mp_s = mpmath.mpc(float(s.real), float(s.imag))
-        result[i] = complex(mpmath.zeta(mp_s))
+        try:
+            mp_s = mpmath.mpc(float(s.real), float(s.imag))
+            result[i] = complex(mpmath.zeta(mp_s))
+        except (ValueError, ZeroDivisionError):
+            result[i] = complex(np.nan, np.nan)
     return result
 
 

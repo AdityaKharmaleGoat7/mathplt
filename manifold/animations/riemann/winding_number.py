@@ -20,10 +20,10 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.patches import FancyArrowPatch
 
-from mathplt.core.animator import AnimationConfig, BaseAnimator
-from mathplt.core.registry import AnimationRegistry
-from mathplt.math.zeta import zeta_on_contour, find_zeros_on_critical_line
-from mathplt.config import ACCENT_BLUE, ACCENT_ORANGE, ACCENT_GREEN
+from manifold.core.animator import AnimationConfig, BaseAnimator
+from manifold.core.registry import AnimationRegistry
+from manifold.math.zeta import zeta_on_contour, find_zeros_on_critical_line
+from manifold.config import ACCENT_BLUE, ACCENT_ORANGE, ACCENT_GREEN
 
 
 def _build_contour(re_lo: float, re_hi: float, im_top: float, n: int = 200) -> np.ndarray:

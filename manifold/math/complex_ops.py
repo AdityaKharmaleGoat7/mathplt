@@ -1,11 +1,8 @@
 """
 Complex plane operations: domain coloring, complex grids, Möbius transforms.
-No matplotlib imports — pure math only.
 """
 
 from __future__ import annotations
-
-import colorsys
 
 import numpy as np
 
@@ -28,7 +25,7 @@ def complex_grid(
 
 def domain_color(z_values: np.ndarray, brightness_cycles: float = 1.0) -> np.ndarray:
     """
-    Standard domain coloring: map complex values to RGB image.
+    Standard domain coloring: map complex values to RGB image (fully vectorized).
 
     - Hue encodes arg(z)  in [0, 2π] → [0, 1]
     - Lightness oscillates with log|z| to show magnitude rings
@@ -42,23 +39,16 @@ def domain_color(z_values: np.ndarray, brightness_cycles: float = 1.0) -> np.nda
     Returns:
         (H, W, 3) float32 array in [0, 1]
     """
+    from matplotlib.colors import hsv_to_rgb
+
     phase = np.angle(z_values)                       # -π to π
     mag = np.log1p(np.abs(z_values))                 # [0, ∞), compressed
     hue = (phase + np.pi) / (2 * np.pi)              # [0, 1]
-    lightness = 0.5 + 0.4 * np.sin(mag * np.pi * brightness_cycles)
+    lightness = np.clip(0.5 + 0.4 * np.sin(mag * np.pi * brightness_cycles), 0.0, 1.0)
     saturation = np.full_like(hue, 0.9)
 
-    H, W = hue.shape
-    rgb = np.zeros((H, W, 3), dtype=np.float32)
-    for i in range(H):
-        for j in range(W):
-            r, g, b = colorsys.hls_to_rgb(
-                float(hue[i, j]),
-                float(np.clip(lightness[i, j], 0.0, 1.0)),
-                float(saturation[i, j]),
-            )
-            rgb[i, j] = (r, g, b)
-    return rgb
+    hsv = np.stack([hue, saturation, lightness], axis=-1)
+    return hsv_to_rgb(hsv).astype(np.float32)
 
 
 def domain_color_fast(
@@ -93,21 +83,24 @@ def domain_color_fast(
     grid_src = z_input if z_input is not None else z_values
     re_z = grid_src.real
     im_z = grid_src.imag
-    re_dist = np.abs(re_z - np.round(re_z))
-    im_dist = np.abs(im_z - np.round(im_z))
-    # Adaptive pixel width via local z-space pixel spacing
-    re_px = np.abs(np.gradient(re_z, axis=1))
-    im_px = np.abs(np.gradient(im_z, axis=0))
-    sigma_re = np.maximum(re_px * 0.4, 1e-6)
-    sigma_im = np.maximum(im_px * 0.4, 1e-6)
-    # Gaussian alpha: 1.0 on the line, falls off smoothly within ~1 pixel
-    grid_alpha = np.maximum(
-        np.exp(-0.5 * (re_dist / sigma_re) ** 2),
-        np.exp(-0.5 * (im_dist / sigma_im) ** 2),
-    )
-    # Blend toward white: alpha=1 → V=1, S=0 (white); alpha=0 → unchanged
-    V = V + grid_alpha * (1.0 - V)
-    S = S * (1.0 - grid_alpha)
+
+    # Grid lines require at least a 2x2 array for np.gradient
+    if min(re_z.shape) >= 2:
+        re_dist = np.abs(re_z - np.round(re_z))
+        im_dist = np.abs(im_z - np.round(im_z))
+        # Adaptive pixel width via local z-space pixel spacing
+        re_px = np.abs(np.gradient(re_z, axis=1))
+        im_px = np.abs(np.gradient(im_z, axis=0))
+        sigma_re = np.maximum(re_px * 0.4, 1e-6)
+        sigma_im = np.maximum(im_px * 0.4, 1e-6)
+        # Gaussian alpha: 1.0 on the line, falls off smoothly within ~1 pixel
+        grid_alpha = np.maximum(
+            np.exp(-0.5 * (re_dist / sigma_re) ** 2),
+            np.exp(-0.5 * (im_dist / sigma_im) ** 2),
+        )
+        # Blend toward white: alpha=1 → V=1, S=0 (white); alpha=0 → unchanged
+        V = V + grid_alpha * (1.0 - V)
+        S = S * (1.0 - grid_alpha)
 
     hsv = np.stack([H, S, V], axis=-1)
     return hsv_to_rgb(hsv).astype(np.float32)

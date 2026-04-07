@@ -7,7 +7,7 @@ import pkgutil
 from typing import TYPE_CHECKING, Type
 
 if TYPE_CHECKING:
-    from mathplt.core.animator import BaseAnimator
+    from manifold.core.animator import BaseAnimator
 
 
 class AnimationRegistry:
@@ -60,11 +60,11 @@ class AnimationRegistry:
     @classmethod
     def discover(cls) -> None:
         """
-        Walk the mathplt.animations package and import every module.
+        Walk the manifold.animations package and import every module.
         Each module's @AnimationRegistry.register decorators fire on import,
         populating the registry automatically.
         """
-        import mathplt.animations as animations_pkg
+        import manifold.animations as animations_pkg
         for _finder, module_name, _ispkg in pkgutil.walk_packages(
             path=animations_pkg.__path__,
             prefix=animations_pkg.__name__ + ".",

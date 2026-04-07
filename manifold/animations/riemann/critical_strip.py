@@ -17,10 +17,10 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.lines import Line2D
 
-from mathplt.core.animator import AnimationConfig, BaseAnimator
-from mathplt.core.registry import AnimationRegistry
-from mathplt.math.zeta import zeta_grid
-from mathplt.config import MAGNITUDE_CMAP, PHASE_CMAP
+from manifold.core.animator import AnimationConfig, BaseAnimator
+from manifold.core.registry import AnimationRegistry
+from manifold.math.zeta import zeta_grid
+from manifold.config import MAGNITUDE_CMAP, PHASE_CMAP
 
 
 @AnimationRegistry.register

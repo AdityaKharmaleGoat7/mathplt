@@ -5,9 +5,9 @@ EquationWidget   — text box with live AST validation + submit button
 AnimationWidget  — wraps BaseAnimator and renders inline as jshtml or HTML5
 
 Usage in a notebook cell:
-    from mathplt.jupyter.widgets import EquationWidget, AnimationWidget
-    from mathplt.animations.graph2d import Graph2DAnimator
-    from mathplt.core.animator import AnimationConfig
+    from manifold.jupyter.widgets import EquationWidget, AnimationWidget
+    from manifold.animations.graph2d import Graph2DAnimator
+    from manifold.core.animator import AnimationConfig
 
     eq = EquationWidget(variable='x', placeholder='sin(x + t) * exp(-0.1 * x**2)')
     eq.display()
@@ -22,9 +22,9 @@ from __future__ import annotations
 
 from typing import Callable
 
-from mathplt.core.animator import AnimationConfig, BaseAnimator
-from mathplt.core.equation_parser import EquationParser
-from mathplt.core.registry import AnimationRegistry
+from manifold.core.animator import AnimationConfig, BaseAnimator
+from manifold.core.equation_parser import EquationParser
+from manifold.core.registry import AnimationRegistry
 
 
 class EquationWidget:

@@ -14,10 +14,10 @@ from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
 
-from mathplt.core.animator import AnimationConfig, BaseAnimator
-from mathplt.core.registry import AnimationRegistry
-from mathplt.math.complex_ops import domain_color_fast
-from mathplt.math.zeta import find_zeros_on_critical_line
+from manifold.core.animator import AnimationConfig, BaseAnimator
+from manifold.core.registry import AnimationRegistry
+from manifold.math.complex_ops import domain_color_fast
+from manifold.math.zeta import find_zeros_on_critical_line
 
 
 @AnimationRegistry.register
@@ -80,7 +80,7 @@ class ZetaSurfaceAnimator(BaseAnimator):
         # Cache the RGB image
         import hashlib, os
         from pathlib import Path
-        from mathplt.config import CACHE_DIR
+        from manifold.config import CACHE_DIR
         key = hashlib.md5(
             f"zeta_dc_{self.re_range}_{self.im_range}_{self.resolution}_{self.dps}".encode()
         ).hexdigest()[:16]

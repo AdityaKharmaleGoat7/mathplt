@@ -3,9 +3,10 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mathplt"
+name = "manifold"
 version = "0.1.0"
 description = "Mathematical animation toolkit — 2D/3D graphs, complex plane, Riemann Hypothesis"
+license = {text = "MIT"}
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
@@ -22,7 +23,7 @@ webapp = ["dash>=2.16", "plotly>=5.20"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mathplt*"]
+include = ["manifold*"]
 
 [tool.ruff]
 line-length = 99
