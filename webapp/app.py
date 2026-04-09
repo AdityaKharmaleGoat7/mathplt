@@ -11,6 +11,21 @@ from manifold.core.equation_parser import EquationParser
 app = dash.Dash(__name__, title="Manifold", suppress_callback_exceptions=True)
 _parser = EquationParser()
 
+
+# ── Linear transform helpers ─────────────────────────────────────────────────
+
+def _parse_matrix(text: str) -> np.ndarray:
+    """Parse '1, 0; 0, 1' → np.array([[1, 0], [0, 1]])."""
+    rows = [r.strip() for r in text.split(";") if r.strip()]
+    return np.array([[float(x) for x in row.split(",")] for row in rows])
+
+
+def _parse_vector(text: str):
+    """Parse '1, 2' → np.array([1, 2]) or None if empty."""
+    if not text or not text.strip():
+        return None
+    return np.array([float(x) for x in text.split(",")])
+
 # ── Inject dark-mode CSS for Dash dropdowns and scrollbars ────────────────────
 app.index_string = """<!DOCTYPE html>
 <html>
@@ -169,6 +184,34 @@ _PRESETS = {
         "z * exp(-abs(z)**2 / 4)",
         "sin(z + t)",
     ],
+    "linear_transform_2d": [
+        "0.707, -0.707; 0.707, 0.707",
+        "1, 1; 0, 1",
+        "2, 0; 0, 0.5",
+        "1, 0; 0, -1",
+        "0, -1; 1, 0",
+        "2, 0; 0, 2",
+    ],
+    "linear_transform_3d": [
+        "0.707, -0.707, 0; 0.707, 0.707, 0; 0, 0, 1",
+        "1, 0, 0; 0, 0.707, -0.707; 0, 0.707, 0.707",
+        "2, 0, 0; 0, 2, 0; 0, 0, 2",
+        "1, 1, 0; 0, 1, 0; 0, 0, 1",
+        "1, 0, 0; 0, 1, 0; 0, 0, -1",
+        "-1, 0, 0; 0, -1, 0; 0, 0, -1",
+    ],
+}
+
+# Preset labels for linear transforms (shown on buttons instead of raw matrix text)
+_PRESET_LABELS = {
+    "linear_transform_2d": [
+        "Rotate 45", "Shear", "Aniso scale",
+        "Reflect Y", "Rotate 90", "Scale 2x",
+    ],
+    "linear_transform_3d": [
+        "Rot Z 45", "Rot X 45", "Scale 3D",
+        "Shear XY", "Reflect Z", "Inversion",
+    ],
 }
 
 # ── Layout ─────────────────────────────────────────────────────────────────────
@@ -222,6 +265,8 @@ app.layout = html.Div(style={
                         {"label": "  Critical strip heatmap",          "value": "riemann.critical_strip"},
                         {"label": "  Winding number",                  "value": "riemann.winding"},
                         {"label": "  Evaluate zeta(a + ib)",           "value": "riemann.point"},
+                        {"label": "--- Linear algebra ---------",  "value": "_sep2", "disabled": True},
+                        {"label": "  Linear transformation",       "value": "linear_transform"},
                     ],
                     style={"fontSize": "13px"},
                 ),
@@ -229,7 +274,7 @@ app.layout = html.Div(style={
 
             # ── Equation ──────────────────────────────────────────────────────
             html.Div(id="eq-section", style=_CARD, children=[
-                html.Div("Equation", style=_SEC),
+                html.Div("Equation", id="eq-title", style=_SEC),
                 dcc.Input(id="equation", type="text", debounce=True,
                     value="sin(x + t) * exp(-0.1 * x**2)",
                     placeholder="e.g. sin(x + t) * exp(-0.1 * x**2)",
@@ -237,7 +282,8 @@ app.layout = html.Div(style={
                 ),
                 html.Div(id="eq-status", style={"fontSize": "11px", "color": "#8b949e"},
                          children="Press Enter to apply"),
-                html.Div("Use x, t for 2D  |  x, y for 3D  |  z, t for complex", style=_HINT),
+                html.Div("Use x, t for 2D  |  x, y for 3D  |  z, t for complex",
+                         id="eq-hint", style=_HINT),
                 # Preset buttons
                 html.Div("Quick presets", style={**_LBL, "marginTop": "6px"}),
                 html.Div(id="preset-container", style={
@@ -336,6 +382,26 @@ app.layout = html.Div(style={
                 }),
             ]),
 
+            # ── Linear transform controls ─────────────────────────────────────
+            html.Div(id="linear-section", style={**_CARD, "display": "none"}, children=[
+                html.Div("Dimension", style=_SEC),
+                dcc.RadioItems(
+                    id="linear-dim", value="2D",
+                    options=[{"label": "2D", "value": "2D"}, {"label": "3D", "value": "3D"}],
+                    inline=True,
+                    inputStyle={"marginRight": "4px"},
+                    labelStyle={"marginRight": "16px", "fontSize": "13px", "color": "#c9d1d9"},
+                    style={"marginBottom": "8px"},
+                ),
+                html.Span("Vector (optional)", style=_LBL),
+                dcc.Input(
+                    id="vector-input", type="text", debounce=True,
+                    placeholder="e.g. 1, 2",
+                    style=_INPUT,
+                ),
+                html.Div("Enter components separated by commas", style=_HINT),
+            ]),
+
             # ── Animation controls ────────────────────────────────────────────
             html.Div(id="anim-section", style=_CARD, children=[
                 html.Div("Animation", style=_SEC),
@@ -413,29 +479,57 @@ app.layout = html.Div(style={
     Output("riemann-section", "style"),
     Output("anim-section",    "style"),
     Output("point-section",   "style"),
+    Output("linear-section",  "style"),
     Input("anim-type", "value"),
 )
 def show_controls(anim):
     show = {"display": "block"}
     hide = {"display": "none"}
-    eq      = {**_CARD} if anim in ("graph2d", "graph3d", "complex") else hide
+    is_lt = anim == "linear_transform"
+    eq      = {**_CARD} if anim in ("graph2d", "graph3d", "complex") or is_lt else hide
     xrange  = hide
     yrange  = hide
     cplx    = hide
-    t       = {**_CARD} if anim in ("graph2d", "graph3d", "complex", "riemann.zeros") else hide
+    t       = {**_CARD} if anim in ("graph2d", "graph3d", "complex", "riemann.zeros") or is_lt else hide
     cmap    = show if anim in ("graph3d", "complex") else hide
     riemann = {**_CARD} if anim.startswith("riemann") and anim != "riemann.point" else hide
-    anim_s  = {**_CARD} if anim in ("graph2d", "graph3d", "complex", "riemann.zeros") else hide
+    anim_s  = {**_CARD} if anim in ("graph2d", "graph3d", "complex", "riemann.zeros") or is_lt else hide
     point   = {**_CARD} if anim == "riemann.point" else hide
-    return eq, xrange, yrange, cplx, t, cmap, riemann, anim_s, point
+    linear  = {**_CARD} if is_lt else hide
+    return eq, xrange, yrange, cplx, t, cmap, riemann, anim_s, point, linear
+
+
+# Update eq section labels for linear transform mode
+@app.callback(
+    Output("eq-title", "children"),
+    Output("eq-hint",  "children"),
+    Input("anim-type", "value"),
+)
+def update_eq_labels(anim):
+    if anim == "linear_transform":
+        return "Transformation Matrix", "Rows separated by ;  e.g. 1, 0; 0, 1"
+    return "Equation", "Use x, t for 2D  |  x, y for 3D  |  z, t for complex"
 
 
 # Populate preset buttons based on mode
 @app.callback(
     Output("preset-container", "children"),
     Input("anim-type", "value"),
+    Input("linear-dim", "value"),
 )
-def update_presets(anim):
+def update_presets(anim, dim):
+    if anim == "linear_transform":
+        key = f"linear_transform_{(dim or '2D').lower()}"
+        presets = _PRESETS.get(key, [])
+        labels = _PRESET_LABELS.get(key, presets)
+        return [
+            html.Button(
+                labels[i] if i < len(labels) else eq,
+                id={"type": "preset-btn", "index": i},
+                className="preset-btn", n_clicks=0,
+            )
+            for i, eq in enumerate(presets)
+        ]
     presets = _PRESETS.get(anim, [])
     return [
         html.Button(
@@ -452,13 +546,18 @@ def update_presets(anim):
     Output("equation", "value"),
     Input({"type": "preset-btn", "index": dash.ALL}, "n_clicks"),
     State("anim-type", "value"),
+    State("linear-dim", "value"),
     prevent_initial_call=True,
 )
-def apply_preset(clicks, anim):
+def apply_preset(clicks, anim, dim):
     if not ctx.triggered_id or not any(c for c in clicks if c):
         return no_update
     idx = ctx.triggered_id["index"]
-    presets = _PRESETS.get(anim, [])
+    if anim == "linear_transform":
+        key = f"linear_transform_{(dim or '2D').lower()}"
+    else:
+        key = anim
+    presets = _PRESETS.get(key, [])
     if idx < len(presets):
         return presets[idx]
     return no_update
@@ -473,13 +572,25 @@ def apply_preset(clicks, anim):
     prevent_initial_call=True,
 )
 def validate_eq(expr, anim):
+    ok_style = {"fontSize": "11px", "color": "#69db7c", "marginBottom": "12px"}
+    err_style = {"fontSize": "11px", "color": "#ff6b6b", "marginBottom": "12px"}
     if not expr:
-        return "Empty equation.", {"fontSize": "11px", "color": "#ff6b6b", "marginBottom": "12px"}
+        return "Empty equation.", err_style
+    if anim == "linear_transform":
+        try:
+            M = _parse_matrix(expr)
+            r, c = M.shape
+            if r != c or r not in (2, 3):
+                return f"Need 2x2 or 3x3 matrix, got {r}x{c}", err_style
+            det = float(np.linalg.det(M))
+            return f"Valid {r}x{r} matrix  |  det = {det:.3g}", ok_style
+        except Exception as e:
+            return f"Invalid matrix: {e}", err_style
     vars_map = {"graph2d": {"x","t"}, "graph3d": {"x","y"}, "complex": {"z","t"}}
     err = _parser.validate(expr, variables=vars_map.get(anim, {"x","t"}))
     if err:
-        return f"Invalid: {err}", {"fontSize": "11px", "color": "#ff6b6b", "marginBottom": "12px"}
-    return "Valid", {"fontSize": "11px", "color": "#69db7c", "marginBottom": "12px"}
+        return f"Invalid: {err}", err_style
+    return "Valid", ok_style
 
 
 # Play / Stop
@@ -641,6 +752,31 @@ _INFO = {
             ]),
         ],
     },
+    "linear_transform": {
+        "title": "Linear Transformation Visualizer",
+        "desc": (
+            "Watch how a matrix transforms space. The grid smoothly "
+            "interpolates from identity to the given matrix. Basis vectors "
+            "(red = e1, blue = e2) show where the standard basis lands."
+        ),
+        "sections": [
+            ("Key concepts", [
+                ("Concept", "What to look for"),
+                ("Determinant", "Area/volume scaling factor; det=0 collapses space"),
+                ("Eigenvectors", "Directions that only get scaled, not rotated"),
+                ("Rotation", "Off-diagonal elements; columns rotate basis vectors"),
+                ("Shear", "One axis slides along another; parallelism preserved"),
+                ("Reflection", "Negative determinant; orientation flips"),
+            ]),
+            ("2D presets explained", [
+                ("Preset", "Matrix", "Effect"),
+                ("Rotate 45", "0.707, -0.707; 0.707, 0.707", "Counter-clockwise 45 degrees"),
+                ("Shear", "1, 1; 0, 1", "Horizontal shear; top slides right"),
+                ("Aniso scale", "2, 0; 0, 0.5", "Stretch x, compress y"),
+                ("Reflect Y", "1, 0; 0, -1", "Mirror across x-axis"),
+            ]),
+        ],
+    },
 }
 
 
@@ -708,6 +844,8 @@ def tick(_, t, anim, imsmax):
         return round((t + 0.12) % 20.0, 3)
     if anim == "riemann.zeros":
         return round((t + 0.2) % float(imsmax or 40), 3)
+    if anim == "linear_transform":
+        return round((t + 0.015) % 4.0, 3)
     return t
 
 
@@ -729,8 +867,11 @@ def tick(_, t, anim, imsmax):
     Input("windtop",    "value"),
     Input("zeta-a",     "value"),
     Input("zeta-b",     "value"),
+    Input("linear-dim",    "value"),
+    Input("vector-input",  "value"),
 )
-def update_graph(anim, eq, xr, yr, rer, imr, t, res, cmap, nz, imsmax, windtop, za, zb):
+def update_graph(anim, eq, xr, yr, rer, imr, t, res, cmap, nz, imsmax, windtop, za, zb,
+                 lin_dim, vec_str):
     # Defaults
     eq      = eq      or "sin(x + t)"
     xr      = xr      or [-10, 10]
@@ -761,6 +902,8 @@ def update_graph(anim, eq, xr, yr, rer, imr, t, res, cmap, nz, imsmax, windtop, 
             return _fig_winding(windtop, nz), ""
         if anim == "riemann.point":
             return _fig_point(za, zb, res)
+        if anim == "linear_transform":
+            return _fig_linear_transform(eq, t, lin_dim, vec_str), ""
     except Exception as e:
         fig = go.Figure()
         fig.update_layout(**DARK,
@@ -968,6 +1111,382 @@ def _fig_point(a: float, b: float, res: int):
     fig.update_yaxes(title_text="|zeta(a+it)|", row=1, col=2)
 
     return fig, value_str
+
+
+def _fig_linear_transform(eq, t, dim, vec_str):
+    """Dispatch to 2D or 3D linear transform figure."""
+    if (dim or "2D") == "3D":
+        return _fig_linear_3d(eq, t, vec_str)
+    return _fig_linear_2d(eq, t, vec_str)
+
+
+def _fig_linear_2d(matrix_str, t, vec_str):
+    """2D linear transformation — 3Blue1Brown style with animated grid morphing,
+    SVD ellipse axes, eigenvector highlight lines, and vector trace paths."""
+    try:
+        M = _parse_matrix(matrix_str)
+        if M.shape != (2, 2):
+            raise ValueError(f"Expected 2x2, got {M.shape[0]}x{M.shape[1]}")
+    except Exception as e:
+        fig = go.Figure()
+        fig.update_layout(**DARK, title=dict(text=f"Matrix error: {e}", font=dict(color="#ff6b6b")))
+        return fig
+
+    # Ping-pong interpolation: 0 → 1 → 0 over period 4
+    frac = 1 - abs(2 * ((t % 4) / 4) - 1)
+    I2 = np.eye(2)
+    Mt = (1 - frac) * I2 + frac * M
+
+    det_M = float(np.linalg.det(M))
+
+    # Eigenanalysis of the target matrix M
+    eigvals_M, eigvecs_M = np.linalg.eig(M)
+    real_eig_mask = np.abs(eigvals_M.imag) < 1e-10
+    eig_str = ", ".join(
+        f"{v.real:.2g}{'+' if v.imag >= 0 else ''}{v.imag:.2g}i" if abs(v.imag) > 1e-10
+        else f"{v.real:.2g}"
+        for v in eigvals_M
+    )
+
+    # SVD of the current interpolated matrix (for ellipse axes)
+    U, S, _Vt = np.linalg.svd(Mt)
+
+    fig = go.Figure()
+
+    # ── Animated grid lines (space morphs from identity → M) ─────────────────
+    span = np.linspace(-4, 4, 50)
+    for g in np.arange(-4, 5, 1):
+        # Vertical grid lines (x = g)
+        pts = Mt @ np.array([np.full_like(span, g), span])
+        fig.add_trace(go.Scatter(
+            x=pts[0], y=pts[1], mode="lines",
+            line=dict(color="rgba(255, 140, 0, 0.25)", width=1),
+            showlegend=False, hoverinfo="skip",
+        ))
+        # Horizontal grid lines (y = g)
+        pts = Mt @ np.array([span, np.full_like(span, g)])
+        fig.add_trace(go.Scatter(
+            x=pts[0], y=pts[1], mode="lines",
+            line=dict(color="rgba(0, 160, 255, 0.25)", width=1),
+            showlegend=False, hoverinfo="skip",
+        ))
+
+    # ── Eigenvector lines (static infinite lines — vectors on these only scale) ─
+    # Key insight: Mt @ ev = (1 - frac + frac*lambda) * ev, so eigenvectors of M
+    # stay on their line at every interpolation step — only the length changes.
+    _EIG_COLORS = ["#ffdd44", "#ff44dd"]
+    for k in range(2):
+        if not real_eig_mask[k]:
+            continue
+        ev = eigvecs_M[:, k].real
+        ev = ev / np.linalg.norm(ev)
+        lam = eigvals_M[k].real
+        # Infinite reference line (static — does not move)
+        far = 8
+        fig.add_trace(go.Scatter(
+            x=[-far * ev[0], far * ev[0]],
+            y=[-far * ev[1], far * ev[1]],
+            mode="lines",
+            line=dict(color=_EIG_COLORS[k], width=1.5, dash="dash"),
+            opacity=0.5,
+            name=f"eigenvector (lambda={lam:.2g})",
+        ))
+        # Diamond marker showing where a unit eigenvector lands under Mt
+        scale = 1 - frac + frac * lam  # eigenvalue of Mt along this eigenvector
+        tip = scale * ev
+        fig.add_trace(go.Scatter(
+            x=[tip[0]], y=[tip[1]], mode="markers",
+            marker=dict(color=_EIG_COLORS[k], size=8, symbol="diamond",
+                        line=dict(color="white", width=1)),
+            showlegend=False,
+        ))
+
+    # ── Unit circle → ellipse with SVD semi-axes ─────────────────────────────
+    theta = np.linspace(0, 2 * np.pi, 100)
+    circle = np.array([np.cos(theta), np.sin(theta)])
+    ellipse = Mt @ circle
+    fig.add_trace(go.Scatter(
+        x=ellipse[0], y=ellipse[1], mode="lines",
+        line=dict(color="#e6edf3", width=2), name="Unit circle",
+    ))
+    # Draw the two SVD principal semi-axes of the ellipse
+    for k in range(2):
+        axis = U[:, k] * S[k]
+        fig.add_trace(go.Scatter(
+            x=[-axis[0], axis[0]], y=[-axis[1], axis[1]],
+            mode="lines",
+            line=dict(color="#ff8800" if k == 0 else "#00aaff", width=2, dash="dot"),
+            opacity=0.7,
+            name=f"sigma{k+1} = {S[k]:.2g}",
+        ))
+
+    # ── Basis vectors ────────────────────────────────────────────────────────
+    e1 = Mt @ np.array([1, 0])
+    e2 = Mt @ np.array([0, 1])
+    fig.add_trace(go.Scatter(
+        x=[0, e1[0]], y=[0, e1[1]], mode="lines+markers",
+        line=dict(color="#ff4444", width=3),
+        marker=dict(symbol=["circle", "arrow"], size=[0, 12],
+                    angleref="previous", color="#ff4444"),
+        name=f"e1 -> ({e1[0]:.2f}, {e1[1]:.2f})",
+    ))
+    fig.add_trace(go.Scatter(
+        x=[0, e2[0]], y=[0, e2[1]], mode="lines+markers",
+        line=dict(color="#4488ff", width=3),
+        marker=dict(symbol=["circle", "arrow"], size=[0, 12],
+                    angleref="previous", color="#4488ff"),
+        name=f"e2 -> ({e2[0]:.2f}, {e2[1]:.2f})",
+    ))
+
+    # ── User vector with trace path ──────────────────────────────────────────
+    vec = _parse_vector(vec_str)
+    if vec is not None and len(vec) == 2:
+        # Compute arc trail: positions from frac=0 to current frac
+        n_trail = 60
+        trail_fracs = np.linspace(0, frac, n_trail)
+        trail_pts = np.array([(((1 - f) * I2 + f * M) @ vec) for f in trail_fracs])
+
+        # Ghost trail (full path, thin, low opacity)
+        fig.add_trace(go.Scatter(
+            x=trail_pts[:, 0], y=trail_pts[:, 1], mode="lines",
+            line=dict(color="rgba(0,255,136,0.15)", width=1.5),
+            showlegend=False, hoverinfo="skip",
+        ))
+        # Bright recent trail (last 40%)
+        recent = max(1, int(n_trail * 0.6))
+        fig.add_trace(go.Scatter(
+            x=trail_pts[recent:, 0], y=trail_pts[recent:, 1], mode="lines",
+            line=dict(color="rgba(0,255,136,0.5)", width=2.5),
+            showlegend=False, hoverinfo="skip",
+        ))
+
+        # Current vector arrow
+        v_t = Mt @ vec
+        fig.add_trace(go.Scatter(
+            x=[0, v_t[0]], y=[0, v_t[1]], mode="lines+markers",
+            line=dict(color="#00ff88", width=3),
+            marker=dict(symbol=["circle", "arrow"], size=[0, 12],
+                        angleref="previous", color="#00ff88"),
+            name=f"v -> ({v_t[0]:.2f}, {v_t[1]:.2f})",
+        ))
+        # Bright dot at current tip
+        fig.add_trace(go.Scatter(
+            x=[v_t[0]], y=[v_t[1]], mode="markers",
+            marker=dict(color="#00ff88", size=9,
+                        line=dict(color="white", width=1.5)),
+            showlegend=False,
+        ))
+
+    # Origin
+    fig.add_trace(go.Scatter(
+        x=[0], y=[0], mode="markers",
+        marker=dict(symbol="cross", color="white", size=10, line=dict(width=2)),
+        showlegend=False,
+    ))
+
+    fig.update_layout(
+        **DARK,
+        title=dict(text=(
+            f"det = {det_M:.3g}  |  eigenvalues: {eig_str}  |  "
+            f"t = {frac:.2f}"
+        ), font=dict(size=12)),
+        xaxis=dict(
+            range=[-5, 5], scaleanchor="y", scaleratio=1,
+            zeroline=True, zerolinecolor="#30363d", zerolinewidth=1,
+            showgrid=False,
+        ),
+        yaxis=dict(
+            range=[-5, 5],
+            zeroline=True, zerolinecolor="#30363d", zerolinewidth=1,
+            showgrid=False,
+        ),
+        legend=dict(x=0.01, y=0.99, bgcolor="rgba(13,17,23,0.7)", font=dict(size=11)),
+    )
+    return fig
+
+
+def _fig_linear_3d(matrix_str, t, vec_str):
+    """3D linear transformation — animated cube wireframe, eigenvector lines,
+    basis vectors, and vector trace paths."""
+    try:
+        M = _parse_matrix(matrix_str)
+        if M.shape != (3, 3):
+            raise ValueError(f"Expected 3x3, got {M.shape[0]}x{M.shape[1]}")
+    except Exception as e:
+        fig = go.Figure()
+        fig.update_layout(**DARK, title=dict(text=f"Matrix error: {e}", font=dict(color="#ff6b6b")))
+        return fig
+
+    frac = 1 - abs(2 * ((t % 4) / 4) - 1)
+    I3 = np.eye(3)
+    Mt = (1 - frac) * I3 + frac * M
+    det_M = float(np.linalg.det(M))
+
+    # Eigenanalysis — show eigenvector lines for real eigenvalues
+    eigvals_M, eigvecs_M = np.linalg.eig(M)
+    real_eig_mask = np.abs(eigvals_M.imag) < 1e-10
+    eig_str = ", ".join(
+        f"{v.real:.2g}{'+' if v.imag >= 0 else ''}{v.imag:.2g}i" if abs(v.imag) > 1e-10
+        else f"{v.real:.2g}"
+        for v in eigvals_M
+    )
+
+    fig = go.Figure()
+
+    # ── Animated cube wireframe: 12 edges of [-1,1]^3 ────────────────────────
+    corners = np.array([
+        [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+        [-1, -1,  1], [1, -1,  1], [1, 1,  1], [-1, 1,  1],
+    ], dtype=float)
+    edges = [
+        (0,1),(1,2),(2,3),(3,0),
+        (4,5),(5,6),(6,7),(7,4),
+        (0,4),(1,5),(2,6),(3,7),
+    ]
+    tc = (Mt @ corners.T).T
+    for i, j in edges:
+        fig.add_trace(go.Scatter3d(
+            x=[tc[i,0], tc[j,0]], y=[tc[i,1], tc[j,1]], z=[tc[i,2], tc[j,2]],
+            mode="lines", line=dict(color="rgba(230,237,243,0.5)", width=3),
+            showlegend=False, hoverinfo="skip",
+        ))
+
+    # ── Animated grid lines on cube faces ─────────────────────────────────────
+    span = np.linspace(-1, 1, 10)
+    for g in np.linspace(-1, 1, 5):
+        for zv in [-1, 1]:
+            pts = Mt @ np.array([span, np.full_like(span, g), np.full_like(span, zv)])
+            fig.add_trace(go.Scatter3d(
+                x=pts[0], y=pts[1], z=pts[2], mode="lines",
+                line=dict(color="rgba(0,160,255,0.15)", width=1),
+                showlegend=False, hoverinfo="skip",
+            ))
+            pts = Mt @ np.array([np.full_like(span, g), span, np.full_like(span, zv)])
+            fig.add_trace(go.Scatter3d(
+                x=pts[0], y=pts[1], z=pts[2], mode="lines",
+                line=dict(color="rgba(255,140,0,0.15)", width=1),
+                showlegend=False, hoverinfo="skip",
+            ))
+
+    # ── Eigenvector lines (static reference, real eigenvalues only) ───────────
+    _EIG_COLORS_3D = ["#ffdd44", "#ff44dd", "#44ffdd"]
+    for k in range(3):
+        if not real_eig_mask[k]:
+            continue
+        ev = eigvecs_M[:, k].real
+        ev = ev / np.linalg.norm(ev)
+        lam = eigvals_M[k].real
+        far = 5
+        fig.add_trace(go.Scatter3d(
+            x=[-far*ev[0], far*ev[0]],
+            y=[-far*ev[1], far*ev[1]],
+            z=[-far*ev[2], far*ev[2]],
+            mode="lines",
+            line=dict(color=_EIG_COLORS_3D[k], width=3, dash="dash"),
+            opacity=0.5,
+            name=f"eigvec (lambda={lam:.2g})",
+        ))
+        # Diamond at current position of unit eigenvector under Mt
+        scale = 1 - frac + frac * lam
+        tip = scale * ev
+        fig.add_trace(go.Scatter3d(
+            x=[tip[0]], y=[tip[1]], z=[tip[2]], mode="markers",
+            marker=dict(color=_EIG_COLORS_3D[k], size=5, symbol="diamond"),
+            showlegend=False,
+        ))
+
+    # ── Basis vectors ─────────────────────────────────────────────────────────
+    colors = ["#ff4444", "#4488ff", "#00cc44"]
+    names = ["e1", "e2", "e3"]
+    for k in range(3):
+        e = np.zeros(3)
+        e[k] = 1
+        v = Mt @ e
+        fig.add_trace(go.Scatter3d(
+            x=[0, v[0]], y=[0, v[1]], z=[0, v[2]],
+            mode="lines+markers",
+            line=dict(color=colors[k], width=6),
+            marker=dict(size=[0, 5], color=colors[k]),
+            name=f"{names[k]} -> ({v[0]:.2f}, {v[1]:.2f}, {v[2]:.2f})",
+        ))
+        fig.add_trace(go.Cone(
+            x=[v[0]], y=[v[1]], z=[v[2]],
+            u=[v[0]*0.15], v=[v[1]*0.15], w=[v[2]*0.15],
+            colorscale=[[0, colors[k]], [1, colors[k]]],
+            showscale=False, sizemode="absolute", sizeref=0.15,
+            showlegend=False,
+        ))
+
+    # ── User vector with trace path ───────────────────────────────────────────
+    vec = _parse_vector(vec_str)
+    if vec is not None and len(vec) == 3:
+        # Arc trail
+        n_trail = 60
+        trail_fracs = np.linspace(0, frac, n_trail)
+        trail_pts = np.array([(((1 - f) * I3 + f * M) @ vec) for f in trail_fracs])
+
+        # Ghost trail
+        fig.add_trace(go.Scatter3d(
+            x=trail_pts[:, 0], y=trail_pts[:, 1], z=trail_pts[:, 2],
+            mode="lines", line=dict(color="rgba(0,255,136,0.2)", width=2),
+            showlegend=False, hoverinfo="skip",
+        ))
+        # Bright recent trail
+        recent = max(1, int(n_trail * 0.6))
+        fig.add_trace(go.Scatter3d(
+            x=trail_pts[recent:, 0], y=trail_pts[recent:, 1], z=trail_pts[recent:, 2],
+            mode="lines", line=dict(color="rgba(0,255,136,0.6)", width=4),
+            showlegend=False, hoverinfo="skip",
+        ))
+
+        vt = Mt @ vec
+        fig.add_trace(go.Scatter3d(
+            x=[0, vt[0]], y=[0, vt[1]], z=[0, vt[2]],
+            mode="lines+markers",
+            line=dict(color="#00ff88", width=6),
+            marker=dict(size=[0, 5], color="#00ff88"),
+            name=f"v -> ({vt[0]:.2f}, {vt[1]:.2f}, {vt[2]:.2f})",
+        ))
+        fig.add_trace(go.Cone(
+            x=[vt[0]], y=[vt[1]], z=[vt[2]],
+            u=[vt[0]*0.15], v=[vt[1]*0.15], w=[vt[2]*0.15],
+            colorscale=[[0, "#00ff88"], [1, "#00ff88"]],
+            showscale=False, sizemode="absolute", sizeref=0.15,
+            showlegend=False,
+        ))
+        # Bright tip marker
+        fig.add_trace(go.Scatter3d(
+            x=[vt[0]], y=[vt[1]], z=[vt[2]], mode="markers",
+            marker=dict(color="#00ff88", size=5,
+                        line=dict(color="white", width=1)),
+            showlegend=False,
+        ))
+
+    # Origin
+    fig.add_trace(go.Scatter3d(
+        x=[0], y=[0], z=[0], mode="markers",
+        marker=dict(symbol="cross", color="white", size=4),
+        showlegend=False,
+    ))
+
+    angle = t * 0.3
+    camera = dict(eye=dict(x=2.5*np.cos(angle), y=2.5*np.sin(angle), z=1.2))
+
+    fig.update_layout(
+        **DARK,
+        title=dict(text=(
+            f"det = {det_M:.3g}  |  eigenvalues: {eig_str}  |  t = {frac:.2f}"
+        ), font=dict(size=12)),
+        scene=dict(
+            xaxis=dict(range=[-4, 4], title="x"),
+            yaxis=dict(range=[-4, 4], title="y"),
+            zaxis=dict(range=[-4, 4], title="z"),
+            camera=camera,
+            aspectmode="cube",
+        ),
+        legend=dict(x=0.01, y=0.99, bgcolor="rgba(13,17,23,0.7)", font=dict(size=10)),
+    )
+    return fig
 
 
 def _fig_zeros(t_max, n_zeros, res, t_cursor):

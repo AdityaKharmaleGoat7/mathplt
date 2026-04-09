@@ -23,6 +23,8 @@
 - Safe equation input via AST-whitelisted parser (no eval vulnerabilities)
 - Domain coloring for complex function visualization
 - Riemann zeta function explorations (zeros, critical strip, winding numbers)
+- Linear transformation visualizer with grid morphing, eigenvector lines, SVD ellipse axes, and trace paths
+- GPU accelerated zeta computation via CuPy with automatic CPU fallback
 - Interactive web app with real-time animation
 - Extensible animation framework with auto-discovery
 
@@ -54,7 +56,8 @@ The interactive web app lets you explore all visualizations with real-time contr
 
 - **Equation presets** -- click to load common equations instantly
 - **Live animation** -- Play/Pause with adjustable speed
-- **7 visualization modes** -- 2D graphs, 3D surfaces, complex plane, and 4 Riemann zeta views
+- **8 visualization modes**: 2D graphs, 3D surfaces, complex plane, linear transformations, and 4 Riemann zeta views
+- **GPU acceleration** via CuPy with automatic CPU fallback
 - **Resolution control** -- trade compute time for sharpness
 
 ```bash
@@ -174,6 +177,59 @@ z**3 + t * z
 
 <br>
 
+### Linear Transformation
+
+Visualize how matrices transform space. Enter any 2x2 or 3x3 matrix and watch the entire coordinate grid smoothly morph from identity to the target transformation. Inspired by 3Blue1Brown's "Essence of Linear Algebra" series.
+
+<p align="center">
+  <img src="assets/linear_2d.gif" width="720" alt="2D Linear Transformation"/>
+</p>
+
+<p align="center">
+  <img src="assets/linear_3d.gif" width="720" alt="3D Linear Transformation"/>
+</p>
+
+#### Features
+
+| Feature | What it shows |
+|---------|--------------|
+| Grid morphing | Space bends smoothly from identity to the matrix as t animates |
+| Unit circle to ellipse | The circle stretches into an ellipse whose axes are the singular vectors (SVD) |
+| Eigenvector lines | When real eigenvalues exist, dashed lines mark directions that only scale, never rotate |
+| Trace paths | A fading trail behind the vector tip shows the arc it sweeps through |
+| Basis vectors | Red (e1) and blue (e2) arrows show where the standard basis lands |
+| Determinant and eigenvalues | Displayed in the title, updating live |
+
+#### How it works
+
+The animation interpolates `M(t) = (1 - t) * I + t * A` where `I` is the identity and `A` is your matrix. As `t` goes from 0 to 1, every point in space moves along a straight path from its original position to its transformed position. This is the same linear interpolation that makes the 3Blue1Brown animations so intuitive.
+
+Eigenvectors of `A` are special: since `M(t) * v = (1 - t + t * lambda) * v`, vectors along eigenvector directions stay on their line at every step. They only scale, never rotate. The dashed eigenvector lines let you verify this visually.
+
+#### Matrices to try (rows separated by semicolons)
+
+| Name | Matrix | What you see |
+|------|--------|-------------|
+| Rotation 45 | `0.707, -0.707; 0.707, 0.707` | Pure rotation, no stretching, det = 1 |
+| Shear | `1, 1; 0, 1` | Horizontal shear, top slides right, eigenvectors both vertical |
+| Anisotropic scale | `2, 0; 0, 0.5` | Stretch x by 2, compress y by half, det = 1 |
+| Reflection | `1, 0; 0, -1` | Mirror across x axis, det = -1 (orientation flips) |
+| Rotation 90 | `0, -1; 1, 0` | Quarter turn, complex eigenvalues (no eigenvector lines) |
+| Singular | `1, 2; 0.5, 1` | det = 0, space collapses to a line |
+
+#### 3D matrices to try
+
+```
+2, 0, 0; 0, 2, 0; 0, 0, 2          Scale uniformly
+0.707, -0.707, 0; 0.707, 0.707, 0; 0, 0, 1   Rotate around Z axis
+1, 1, 0; 0, 1, 0; 0, 0, 1          Shear in XY
+1, 0, 0; 0, 1, 0; 0, 0, -1         Reflect across Z = 0
+```
+
+You can also enter an optional vector (e.g. `1, 2`) to see how a specific vector gets carried along by the transformation. The green arrow and its fading trail show the path.
+
+<br>
+
 ### Riemann Hypothesis
 
 > *"The nontrivial zeros of zeta(s) have real part equal to 1/2."* -- Bernhard Riemann, 1859
@@ -219,14 +275,15 @@ The number of zeros inside a closed contour equals the winding number of the ima
 ```
 manifold/
   core/          BaseAnimator, AnimationRegistry, EquationParser (AST safe eval)
-  math/          zeta.py (mpmath), complex_ops.py (domain coloring), numerics.py
+  math/          zeta.py, zeta_fast.py (Euler-Maclaurin), gpu_backend.py (CuPy/NumPy),
+                 complex_ops.py (domain coloring), numerics.py
   animations/    graph2d, graph3d, complex_plane
     riemann/     zeros, critical_strip, zeta_surface, winding_number, continuation
   jupyter/       EquationWidget, AnimationWidget
   config.py      Style constants, cache settings
 
 notebooks/       4 interactive Jupyter notebooks
-webapp/          Dash + Plotly web app
+webapp/          Dash + Plotly web app (includes linear transformation visualizer)
 tests/           pytest suite
 ```
 
@@ -263,9 +320,9 @@ It will be auto-discovered with no other changes needed.
 |---------|---------|
 | matplotlib | Jupyter notebook animations |
 | plotly + dash | Interactive web app |
-| mpmath | High precision complex math (zeta function) |
-| numpy | Numerical arrays |
-| scipy | Numerical utilities |
+| numpy | Numerical arrays, vectorized zeta computation (Euler-Maclaurin) |
+| scipy | Root finding, special functions |
+| cupy (optional) | GPU acceleration for zeta and array operations |
 | ipywidgets | Jupyter equation input widgets |
 
 <br>
