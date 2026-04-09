@@ -92,6 +92,10 @@ def zeta_on_critical_line(
 
     Returns complex ndarray of same shape as t_values.
     """
+    t_values = np.asarray(t_values, dtype=float)
+    if t_values.size == 0:
+        return np.array([], dtype=complex)
+
     key = _cache_key(
         fn="critical_line_fast",
         t_min=float(t_values[0]),

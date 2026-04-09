@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from manifold.config import EM_BERNOULLI_TERMS, EM_DIRECT_TERMS
 from manifold.math.gpu_backend import get_xp, to_device, to_numpy
 
 # ── Precomputed constants ────────────────────────────────────────────────────
@@ -41,14 +42,16 @@ for _i in range(1, 21):
     if _i % 2 == 0:
         _FACT2K.append(_f)
 
+_NAN = complex(float("nan"), float("nan"))
+
 
 # ── Core vectorised zeta ─────────────────────────────────────────────────────
 
 def zeta_array(
     s: np.ndarray,
     *,
-    N: int = 128,
-    K: int = 10,
+    N: int = EM_DIRECT_TERMS,
+    K: int = EM_BERNOULLI_TERMS,
     force_cpu: bool = False,
 ) -> np.ndarray:
     """
@@ -56,7 +59,7 @@ def zeta_array(
 
     Parameters
     ----------
-    s : complex ndarray of any shape
+    s : complex ndarray (any shape), or a scalar complex / float
     N : direct-summation cutoff  (default 128 — excellent for |Im s| ≤ 100)
     K : Bernoulli correction terms, max 10  (default 10)
     force_cpu : bypass CuPy even when a GPU is present
@@ -65,13 +68,20 @@ def zeta_array(
     -------
     complex ndarray of ζ(s) values, same shape as *s*.
     """
+    s = np.atleast_1d(np.asarray(s, dtype=np.complex128))
     try:
         return _zeta_core(s, N=N, K=K, force_cpu=force_cpu)
-    except Exception:
+    except Exception as exc:
         # GPU out-of-memory or driver hiccup → retry on CPU
-        if not force_cpu:
+        if not force_cpu and _is_gpu_error(exc):
             return _zeta_core(s, N=N, K=K, force_cpu=True)
         raise
+
+
+def _is_gpu_error(exc: Exception) -> bool:
+    """Return True when *exc* looks like a CuPy / CUDA runtime error."""
+    name = type(exc).__module__ or ""
+    return "cupy" in name or "cuda" in name
 
 
 def _zeta_core(
@@ -82,22 +92,19 @@ def _zeta_core(
     force_cpu: bool,
 ) -> np.ndarray:
     xp = get_xp(force_cpu=force_cpu)
+    K = min(K, len(_B2K))
 
     shape = s.shape
-    s_flat = to_device(
-        np.asarray(s, dtype=np.complex128).ravel(),
-        force_cpu=force_cpu,
-    )
+    s_flat = to_device(s.ravel(), force_cpu=force_cpu)
 
     # ── Direct sum   Σ_{n=1}^{N} n^{-s}  ────────────────────────────────────
     result = xp.zeros_like(s_flat)
-    # Pre-compute log(n) once on host — tiny list, avoids repeated log calls
     log_ns = [float(np.log(n)) for n in range(1, N + 1)]
     for ln in log_ns:
         result += xp.exp(-ln * s_flat)
 
     # ── Euler-Maclaurin tail correction ──────────────────────────────────────
-    log_N = float(np.log(N))
+    log_N = log_ns[-1]  # log(N), already computed
 
     #   N^{1-s} / (s - 1)
     result += xp.exp(log_N * (1 - s_flat)) / (s_flat - 1)
@@ -105,7 +112,6 @@ def _zeta_core(
     result -= xp.exp(-log_N * s_flat) / 2
 
     # Bernoulli correction terms
-    K = min(K, len(_B2K))
     for k in range(1, K + 1):
         # Rising Pochhammer: s(s+1)(s+2)…(s+2k−2)
         poch = xp.ones_like(s_flat)
@@ -116,7 +122,7 @@ def _zeta_core(
 
     # ── Pole at s = 1 → NaN ─────────────────────────────────────────────────
     near_pole = xp.abs(s_flat - 1) < 1e-10
-    result = xp.where(near_pole, xp.array(complex("nan+nanj")), result)
+    result = xp.where(near_pole, xp.complex128(_NAN), result)
 
     return to_numpy(result.reshape(shape))
 
@@ -141,22 +147,22 @@ def find_zeros(n_zeros: int = 15) -> list[complex]:
     from scipy.optimize import brentq
     from scipy.special import loggamma
 
-    # Riemann-Siegel theta function  (vectorised, CPU)
     def theta(t: np.ndarray) -> np.ndarray:
+        """Riemann-Siegel theta function (vectorised, CPU)."""
         return (
             np.imag(loggamma(0.25 + 0.5j * t))
             - (t / 2) * np.log(np.pi)
         )
 
-    # Scalar Z(t) for Brent refinement
     def Z_scalar(t: float) -> float:
+        """Scalar Z(t) for Brent refinement (CPU only — avoids GPU kernel overhead)."""
         s = np.array([0.5 + 1j * t])
         z = zeta_array(s, force_cpu=True)[0]
         return float((np.exp(1j * theta(np.array([t]))[0]) * z).real)
 
     # ── Phase 1: coarse grid — find sign changes of Z(t) ────────────────────
-    t_max = max(60.0, n_zeros * 4.0)
-    n_grid = max(20_000, n_zeros * 2_000)
+    t_max = max(80.0, n_zeros * 5.0)
+    n_grid = max(20_000, int(t_max * 400))
     t_grid = np.linspace(1.0, t_max, n_grid)
 
     zeta_vals = zeta_array(0.5 + 1j * t_grid)          # GPU-accelerated
@@ -195,6 +201,7 @@ def dirichlet_partial_sum(
     xp = get_xp(force_cpu=force_cpu)
     s_dev = to_device(s_values.astype(np.complex128), force_cpu=force_cpu)
     result = xp.zeros(s_dev.shape, dtype=xp.complex128)
-    for n in range(1, n_terms + 1):
-        result += xp.exp(-float(np.log(n)) * s_dev)
+    log_ns = [float(np.log(n)) for n in range(1, n_terms + 1)]
+    for ln in log_ns:
+        result += xp.exp(-ln * s_dev)
     return to_numpy(result)

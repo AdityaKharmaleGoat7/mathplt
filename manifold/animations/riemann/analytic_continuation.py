@@ -63,7 +63,7 @@ class AnalyticContinuationAnimator(BaseAnimator):
         self._S = RE + 1j * IM
 
     def setup(self) -> None:
-        print("Computing true ζ(s) via mpmath (will be cached)...")
+        print("Computing true ζ(s) (will be cached)...")
         RE, IM, Z_true = zeta_grid(
             re_range=self.re_range,
             im_range=self.im_range,

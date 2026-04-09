@@ -56,22 +56,12 @@ class ZetaSurfaceAnimator(BaseAnimator):
         im_range: tuple[float, float],
     ) -> np.ndarray:
         """Compute ζ(s) on a grid and return domain-colored RGB image."""
-        import mpmath
-        mpmath.mp.dps = self.dps
+        from manifold.math.zeta_fast import zeta_array
 
         re = np.linspace(re_range[0], re_range[1], self.resolution)
         im = np.linspace(im_range[0], im_range[1], self.resolution)
         RE, IM = np.meshgrid(re, im)
-        Z_plane = RE + 1j * IM
-        W = np.zeros_like(Z_plane, dtype=complex)
-
-        for i in range(Z_plane.shape[0]):
-            for j in range(Z_plane.shape[1]):
-                s = mpmath.mpc(float(Z_plane[i, j].real), float(Z_plane[i, j].imag))
-                try:
-                    W[i, j] = complex(mpmath.zeta(s))
-                except Exception:
-                    W[i, j] = np.nan
+        W = zeta_array(RE + 1j * IM)
 
         return domain_color_fast(W)
 
