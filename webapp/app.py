@@ -1121,8 +1121,9 @@ def _fig_linear_transform(eq, t, dim, vec_str):
 
 
 def _fig_linear_2d(matrix_str, t, vec_str):
-    """2D linear transformation — 3Blue1Brown style with animated grid morphing,
-    SVD ellipse axes, eigenvector highlight lines, and vector trace paths."""
+    """2D linear transformation — full dynamics visualization:
+    phase portrait, trajectory curves, invariant curves, vector field,
+    animated grid morphing, SVD ellipse axes, eigenvector lines."""
     try:
         M = _parse_matrix(matrix_str)
         if M.shape != (2, 2):
@@ -1135,11 +1136,28 @@ def _fig_linear_2d(matrix_str, t, vec_str):
     # Ping-pong interpolation: 0 → 1 → 0 over period 4
     frac = 1 - abs(2 * ((t % 4) / 4) - 1)
     I2 = np.eye(2)
-    Mt = (1 - frac) * I2 + frac * M
+
+    # ── Matrix logarithm for continuous flow M^t ─────────────────────────────
+    # M^t = exp(t log M) gives geodesic interpolation (the "true" dynamics).
+    # Falls back to linear interpolation when log(M) is complex or undefined.
+    B = None  # generator: M = exp(B)
+    try:
+        from scipy.linalg import logm as _logm, expm as _expm
+        B_cand = _logm(M.astype(complex))
+        if np.all(np.abs(B_cand.imag) < 1e-8):
+            B_real = B_cand.real
+            if np.linalg.norm(B_real) > 1e-10:  # skip trivial (M ~ I)
+                B = B_real
+    except Exception:
+        pass
+
+    if B is not None:
+        from scipy.linalg import expm as _expm
+        Mt = _expm(frac * B)
+    else:
+        Mt = (1 - frac) * I2 + frac * M
 
     det_M = float(np.linalg.det(M))
-
-    # Eigenanalysis of the target matrix M
     eigvals_M, eigvecs_M = np.linalg.eig(M)
     real_eig_mask = np.abs(eigvals_M.imag) < 1e-10
     eig_str = ", ".join(
@@ -1147,23 +1165,121 @@ def _fig_linear_2d(matrix_str, t, vec_str):
         else f"{v.real:.2g}"
         for v in eigvals_M
     )
-
-    # SVD of the current interpolated matrix (for ellipse axes)
     U, S, _Vt = np.linalg.svd(Mt)
+
+    # ── Flow trajectory helper (via eigendecomposition of B) ─────────────────
+    flow_ok = False
+    if B is not None:
+        eig_B, P_B = np.linalg.eig(B)
+        try:
+            Pinv_B = np.linalg.inv(P_B)
+            flow_ok = True
+        except np.linalg.LinAlgError:
+            pass
+
+    def _flow(v0, t_arr):
+        """Trajectory of v0 under exp(tB) for times in t_arr."""
+        xi0 = Pinv_B @ v0
+        return (P_B @ (xi0[:, None] * np.exp(np.outer(eig_B, t_arr)))).real
 
     fig = go.Figure()
 
-    # ── Animated grid lines (space morphs from identity → M) ─────────────────
+    # ── 1. Vector field: instantaneous velocity log(M) * v ───────────────────
+    #    At every grid point, draw a small arrow showing the flow direction.
+    #    Trajectories follow these arrows — deeply satisfying to watch.
+    if B is not None:
+        import plotly.figure_factory as ff
+        gxv = np.linspace(-4, 4, 9)
+        gyv = np.linspace(-4, 4, 9)
+        GXV, GYV = np.meshgrid(gxv, gyv)
+        U_f = B[0, 0] * GXV + B[0, 1] * GYV
+        V_f = B[1, 0] * GXV + B[1, 1] * GYV
+        max_mag = np.max(np.sqrt(U_f**2 + V_f**2)) + 1e-10
+        vf_scale = 0.6 / max_mag
+        try:
+            qfig = ff.create_quiver(
+                GXV.ravel(), GYV.ravel(),
+                (U_f * vf_scale).ravel(), (V_f * vf_scale).ravel(),
+                scale=1, arrow_scale=0.4,
+            )
+            qt = qfig.data[0]
+            qt.line = dict(color="rgba(100, 180, 255, 0.25)", width=1)
+            qt.showlegend = True
+            qt.name = "Velocity field log(A)*v"
+            qt.hoverinfo = "skip"
+            fig.add_trace(qt)
+        except Exception:
+            pass
+
+    # ── 2. Invariant curves: conserved quantity level sets ────────────────────
+    #    For saddle/node: H = mu2 ln|xi1| - mu1 ln|xi2|  (hyperbolas etc.)
+    #    For center (rotation): H = x^2 + y^2  (circles)
+    if flow_ok:
+        eig_B_r = eig_B.real if all(abs(v.imag) < 1e-10 for v in eig_B) else None
+        inv_drawn = False
+
+        if eig_B_r is not None:
+            mu1, mu2 = eig_B_r
+            if abs(mu1) > 1e-10 and abs(mu2) > 1e-10 and abs(mu1 - mu2) > 1e-10:
+                # Saddle or node — compute H in eigenbasis of B
+                P_Br = P_B.real
+                Pinv_Br = np.linalg.inv(P_Br)
+                gi = np.linspace(-4.8, 4.8, 120)
+                GXI, GYI = np.meshgrid(gi, gi)
+                xi = Pinv_Br @ np.array([GXI.ravel(), GYI.ravel()])
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    H = mu2 * np.log(np.abs(xi[0]) + 1e-15) - mu1 * np.log(np.abs(xi[1]) + 1e-15)
+                H = H.reshape(GXI.shape)
+                H_fin = H[np.isfinite(H)]
+                if len(H_fin) > 100:
+                    lo, hi = np.percentile(H_fin, [8, 92])
+                    levels = np.linspace(lo, hi, 14)
+                    # Extract contour paths via matplotlib (computation only)
+                    import matplotlib
+                    matplotlib.use('Agg')
+                    import matplotlib.pyplot as _plt
+                    _fig_tmp, _ax_tmp = _plt.subplots()
+                    cs = _ax_tmp.contour(GXI, GYI, H, levels=levels)
+                    _plt.close(_fig_tmp)
+                    x_inv, y_inv = [], []
+                    for path in cs.get_paths():
+                        v = path.vertices
+                        if len(v) > 3:
+                            x_inv.extend(list(v[:, 0]) + [None])
+                            y_inv.extend(list(v[:, 1]) + [None])
+                    if x_inv:
+                        fig.add_trace(go.Scatter(
+                            x=x_inv, y=y_inv, mode="lines",
+                            line=dict(color="rgba(150,130,255,0.2)", width=1, dash="dot"),
+                            name="Invariant curves",
+                            hoverinfo="skip",
+                        ))
+                        inv_drawn = True
+
+        if not inv_drawn and eig_B_r is None:
+            # Check for center (pure rotation): eigenvalues of B are +/- iw
+            if all(abs(v.real) < 1e-10 and abs(v.imag) > 1e-10 for v in eig_B):
+                theta_c = np.linspace(0, 2 * np.pi, 100)
+                x_inv, y_inv = [], []
+                for r in np.arange(0.5, 4.5, 0.5):
+                    x_inv.extend(list(r * np.cos(theta_c)) + [None])
+                    y_inv.extend(list(r * np.sin(theta_c)) + [None])
+                fig.add_trace(go.Scatter(
+                    x=x_inv, y=y_inv, mode="lines",
+                    line=dict(color="rgba(150,130,255,0.2)", width=1, dash="dot"),
+                    name="Invariant circles",
+                    hoverinfo="skip",
+                ))
+
+    # ── 3. Animated grid lines (space morphs from identity → M) ──────────────
     span = np.linspace(-4, 4, 50)
     for g in np.arange(-4, 5, 1):
-        # Vertical grid lines (x = g)
         pts = Mt @ np.array([np.full_like(span, g), span])
         fig.add_trace(go.Scatter(
             x=pts[0], y=pts[1], mode="lines",
             line=dict(color="rgba(255, 140, 0, 0.25)", width=1),
             showlegend=False, hoverinfo="skip",
         ))
-        # Horizontal grid lines (y = g)
         pts = Mt @ np.array([span, np.full_like(span, g)])
         fig.add_trace(go.Scatter(
             x=pts[0], y=pts[1], mode="lines",
@@ -1171,9 +1287,55 @@ def _fig_linear_2d(matrix_str, t, vec_str):
             showlegend=False, hoverinfo="skip",
         ))
 
-    # ── Eigenvector lines (static infinite lines — vectors on these only scale) ─
-    # Key insight: Mt @ ev = (1 - frac + frac*lambda) * ev, so eigenvectors of M
-    # stay on their line at every interpolation step — only the length changes.
+    # ── 4. Phase portrait: 24 seed vectors flowing under A^t ─────────────────
+    #    Seed uniformly around the origin, show full trajectory (static) and
+    #    current traversed portion (bright) with moving dots.
+    if flow_ok:
+        n_seeds = 24
+        theta_s = np.linspace(0, 2 * np.pi, n_seeds, endpoint=False)
+        seeds = [1.5 * np.array([np.cos(a), np.sin(a)]) for a in theta_s]
+
+        t_full = np.linspace(0, 1.0, 80)
+        t_curr = np.linspace(0, frac, max(2, int(frac * 80)))
+
+        # Full trajectories (static, faint) — shows the complete flow pattern
+        xf, yf = [], []
+        # Current traversed (brighter)
+        xc, yc = [], []
+        # Current position dots
+        dx, dy = [], []
+
+        for seed in seeds:
+            tf = _flow(seed, t_full)
+            xf.extend(list(tf[0]) + [None])
+            yf.extend(list(tf[1]) + [None])
+            tc = _flow(seed, t_curr)
+            xc.extend(list(tc[0]) + [None])
+            yc.extend(list(tc[1]) + [None])
+            pos = Mt @ seed
+            dx.append(pos[0])
+            dy.append(pos[1])
+
+        fig.add_trace(go.Scatter(
+            x=xf, y=yf, mode="lines",
+            line=dict(color="rgba(180,140,255,0.12)", width=1),
+            legendgroup="phase", name="Phase portrait",
+            hoverinfo="skip",
+        ))
+        fig.add_trace(go.Scatter(
+            x=xc, y=yc, mode="lines",
+            line=dict(color="rgba(180,140,255,0.45)", width=1.5),
+            legendgroup="phase", showlegend=False,
+            hoverinfo="skip",
+        ))
+        fig.add_trace(go.Scatter(
+            x=dx, y=dy, mode="markers",
+            marker=dict(color="rgba(180,140,255,0.7)", size=4),
+            legendgroup="phase", showlegend=False,
+            hoverinfo="skip",
+        ))
+
+    # ── 5. Eigenvector lines (infinite, static reference) ────────────────────
     _EIG_COLORS = ["#ffdd44", "#ff44dd"]
     for k in range(2):
         if not real_eig_mask[k]:
@@ -1181,7 +1343,6 @@ def _fig_linear_2d(matrix_str, t, vec_str):
         ev = eigvecs_M[:, k].real
         ev = ev / np.linalg.norm(ev)
         lam = eigvals_M[k].real
-        # Infinite reference line (static — does not move)
         far = 8
         fig.add_trace(go.Scatter(
             x=[-far * ev[0], far * ev[0]],
@@ -1191,9 +1352,7 @@ def _fig_linear_2d(matrix_str, t, vec_str):
             opacity=0.5,
             name=f"eigenvector (lambda={lam:.2g})",
         ))
-        # Diamond marker showing where a unit eigenvector lands under Mt
-        scale = 1 - frac + frac * lam  # eigenvalue of Mt along this eigenvector
-        tip = scale * ev
+        tip = Mt @ ev
         fig.add_trace(go.Scatter(
             x=[tip[0]], y=[tip[1]], mode="markers",
             marker=dict(color=_EIG_COLORS[k], size=8, symbol="diamond",
@@ -1201,7 +1360,7 @@ def _fig_linear_2d(matrix_str, t, vec_str):
             showlegend=False,
         ))
 
-    # ── Unit circle → ellipse with SVD semi-axes ─────────────────────────────
+    # ── 6. Unit circle → ellipse with SVD semi-axes ──────────────────────────
     theta = np.linspace(0, 2 * np.pi, 100)
     circle = np.array([np.cos(theta), np.sin(theta)])
     ellipse = Mt @ circle
@@ -1209,7 +1368,6 @@ def _fig_linear_2d(matrix_str, t, vec_str):
         x=ellipse[0], y=ellipse[1], mode="lines",
         line=dict(color="#e6edf3", width=2), name="Unit circle",
     ))
-    # Draw the two SVD principal semi-axes of the ellipse
     for k in range(2):
         axis = U[:, k] * S[k]
         fig.add_trace(go.Scatter(
@@ -1220,7 +1378,7 @@ def _fig_linear_2d(matrix_str, t, vec_str):
             name=f"sigma{k+1} = {S[k]:.2g}",
         ))
 
-    # ── Basis vectors ────────────────────────────────────────────────────────
+    # ── 7. Basis vectors ─────────────────────────────────────────────────────
     e1 = Mt @ np.array([1, 0])
     e2 = Mt @ np.array([0, 1])
     fig.add_trace(go.Scatter(
@@ -1238,27 +1396,37 @@ def _fig_linear_2d(matrix_str, t, vec_str):
         name=f"e2 -> ({e2[0]:.2f}, {e2[1]:.2f})",
     ))
 
-    # ── User vector with trace path ──────────────────────────────────────────
+    # ── 8. User vector: trajectory curve + arrow + dot ───────────────────────
     vec = _parse_vector(vec_str)
     if vec is not None and len(vec) == 2:
-        # Compute arc trail: positions from frac=0 to current frac
-        n_trail = 60
-        trail_fracs = np.linspace(0, frac, n_trail)
-        trail_pts = np.array([(((1 - f) * I2 + f * M) @ vec) for f in trail_fracs])
-
-        # Ghost trail (full path, thin, low opacity)
-        fig.add_trace(go.Scatter(
-            x=trail_pts[:, 0], y=trail_pts[:, 1], mode="lines",
-            line=dict(color="rgba(0,255,136,0.15)", width=1.5),
-            showlegend=False, hoverinfo="skip",
-        ))
-        # Bright recent trail (last 40%)
-        recent = max(1, int(n_trail * 0.6))
-        fig.add_trace(go.Scatter(
-            x=trail_pts[recent:, 0], y=trail_pts[recent:, 1], mode="lines",
-            line=dict(color="rgba(0,255,136,0.5)", width=2.5),
-            showlegend=False, hoverinfo="skip",
-        ))
+        if flow_ok:
+            # Static full trajectory curve (the hyperbola / arc the vector follows)
+            t_traj = np.linspace(-0.5, 2.0, 200)
+            traj = _flow(vec, t_traj)
+            fig.add_trace(go.Scatter(
+                x=traj[0], y=traj[1], mode="lines",
+                line=dict(color="rgba(0,255,136,0.15)", width=1.5, dash="dot"),
+                name="Trajectory curve",
+                hoverinfo="skip",
+            ))
+            # Traversed portion (bright, solid)
+            t_done = np.linspace(0, frac, max(2, int(frac * 80)))
+            traj_done = _flow(vec, t_done)
+            fig.add_trace(go.Scatter(
+                x=traj_done[0], y=traj_done[1], mode="lines",
+                line=dict(color="rgba(0,255,136,0.5)", width=2.5),
+                showlegend=False, hoverinfo="skip",
+            ))
+        else:
+            # Linear interpolation fallback trail
+            n_trail = 60
+            trail_fracs = np.linspace(0, frac, n_trail)
+            trail_pts = np.array([(((1 - f) * I2 + f * M) @ vec) for f in trail_fracs])
+            fig.add_trace(go.Scatter(
+                x=trail_pts[:, 0], y=trail_pts[:, 1], mode="lines",
+                line=dict(color="rgba(0,255,136,0.3)", width=2),
+                showlegend=False, hoverinfo="skip",
+            ))
 
         # Current vector arrow
         v_t = Mt @ vec
@@ -1269,7 +1437,7 @@ def _fig_linear_2d(matrix_str, t, vec_str):
                         angleref="previous", color="#00ff88"),
             name=f"v -> ({v_t[0]:.2f}, {v_t[1]:.2f})",
         ))
-        # Bright dot at current tip
+        # Bright dot at tip
         fig.add_trace(go.Scatter(
             x=[v_t[0]], y=[v_t[1]], mode="markers",
             marker=dict(color="#00ff88", size=9,
@@ -1306,8 +1474,8 @@ def _fig_linear_2d(matrix_str, t, vec_str):
 
 
 def _fig_linear_3d(matrix_str, t, vec_str):
-    """3D linear transformation — animated cube wireframe, eigenvector lines,
-    basis vectors, and vector trace paths."""
+    """3D linear transformation — animated cube, phase portrait,
+    trajectory curves, eigenvector lines, basis vectors."""
     try:
         M = _parse_matrix(matrix_str)
         if M.shape != (3, 3):
@@ -1319,10 +1487,26 @@ def _fig_linear_3d(matrix_str, t, vec_str):
 
     frac = 1 - abs(2 * ((t % 4) / 4) - 1)
     I3 = np.eye(3)
-    Mt = (1 - frac) * I3 + frac * M
-    det_M = float(np.linalg.det(M))
 
-    # Eigenanalysis — show eigenvector lines for real eigenvalues
+    # Matrix logarithm for continuous flow
+    B = None
+    try:
+        from scipy.linalg import logm as _logm, expm as _expm
+        B_cand = _logm(M.astype(complex))
+        if np.all(np.abs(B_cand.imag) < 1e-8):
+            B_real = B_cand.real
+            if np.linalg.norm(B_real) > 1e-10:
+                B = B_real
+    except Exception:
+        pass
+
+    if B is not None:
+        from scipy.linalg import expm as _expm
+        Mt = _expm(frac * B)
+    else:
+        Mt = (1 - frac) * I3 + frac * M
+
+    det_M = float(np.linalg.det(M))
     eigvals_M, eigvecs_M = np.linalg.eig(M)
     real_eig_mask = np.abs(eigvals_M.imag) < 1e-10
     eig_str = ", ".join(
@@ -1331,9 +1515,23 @@ def _fig_linear_3d(matrix_str, t, vec_str):
         for v in eigvals_M
     )
 
+    # Flow trajectory helper
+    flow_ok = False
+    if B is not None:
+        eig_B3, P_B3 = np.linalg.eig(B)
+        try:
+            Pinv_B3 = np.linalg.inv(P_B3)
+            flow_ok = True
+        except np.linalg.LinAlgError:
+            pass
+
+    def _flow3(v0, t_arr):
+        xi0 = Pinv_B3 @ v0
+        return (P_B3 @ (xi0[:, None] * np.exp(np.outer(eig_B3, t_arr)))).real
+
     fig = go.Figure()
 
-    # ── Animated cube wireframe: 12 edges of [-1,1]^3 ────────────────────────
+    # ── Animated cube wireframe ───────────────────────────────────────────────
     corners = np.array([
         [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
         [-1, -1,  1], [1, -1,  1], [1, 1,  1], [-1, 1,  1],
@@ -1351,7 +1549,7 @@ def _fig_linear_3d(matrix_str, t, vec_str):
             showlegend=False, hoverinfo="skip",
         ))
 
-    # ── Animated grid lines on cube faces ─────────────────────────────────────
+    # ── Grid lines on cube faces ──────────────────────────────────────────────
     span = np.linspace(-1, 1, 10)
     for g in np.linspace(-1, 1, 5):
         for zv in [-1, 1]:
@@ -1368,7 +1566,56 @@ def _fig_linear_3d(matrix_str, t, vec_str):
                 showlegend=False, hoverinfo="skip",
             ))
 
-    # ── Eigenvector lines (static reference, real eigenvalues only) ───────────
+    # ── Phase portrait: 12 seed vectors flowing under A^t ─────────────────────
+    if flow_ok:
+        # Icosahedron vertices as evenly-distributed seed directions
+        phi = (1 + np.sqrt(5)) / 2
+        ico_raw = [
+            (0, 1, phi), (0, -1, phi), (0, 1, -phi), (0, -1, -phi),
+            (1, phi, 0), (-1, phi, 0), (1, -phi, 0), (-1, -phi, 0),
+            (phi, 0, 1), (-phi, 0, 1), (phi, 0, -1), (-phi, 0, -1),
+        ]
+        seeds3 = [1.2 * np.array(v) / np.linalg.norm(v) for v in ico_raw]
+
+        t_full = np.linspace(0, 1.0, 60)
+        t_curr = np.linspace(0, frac, max(2, int(frac * 60)))
+
+        xf, yf, zf = [], [], []
+        xc, yc, zc = [], [], []
+        ddx, ddy, ddz = [], [], []
+
+        for seed in seeds3:
+            tf = _flow3(seed, t_full)
+            xf.extend(list(tf[0]) + [None])
+            yf.extend(list(tf[1]) + [None])
+            zf.extend(list(tf[2]) + [None])
+            tc_arr = _flow3(seed, t_curr)
+            xc.extend(list(tc_arr[0]) + [None])
+            yc.extend(list(tc_arr[1]) + [None])
+            zc.extend(list(tc_arr[2]) + [None])
+            pos = Mt @ seed
+            ddx.append(pos[0]); ddy.append(pos[1]); ddz.append(pos[2])
+
+        fig.add_trace(go.Scatter3d(
+            x=xf, y=yf, z=zf, mode="lines",
+            line=dict(color="rgba(180,140,255,0.15)", width=2),
+            legendgroup="phase", name="Phase portrait",
+            hoverinfo="skip",
+        ))
+        fig.add_trace(go.Scatter3d(
+            x=xc, y=yc, z=zc, mode="lines",
+            line=dict(color="rgba(180,140,255,0.5)", width=3),
+            legendgroup="phase", showlegend=False,
+            hoverinfo="skip",
+        ))
+        fig.add_trace(go.Scatter3d(
+            x=ddx, y=ddy, z=ddz, mode="markers",
+            marker=dict(color="rgba(180,140,255,0.7)", size=3),
+            legendgroup="phase", showlegend=False,
+            hoverinfo="skip",
+        ))
+
+    # ── Eigenvector lines ─────────────────────────────────────────────────────
     _EIG_COLORS_3D = ["#ffdd44", "#ff44dd", "#44ffdd"]
     for k in range(3):
         if not real_eig_mask[k]:
@@ -1386,9 +1633,7 @@ def _fig_linear_3d(matrix_str, t, vec_str):
             opacity=0.5,
             name=f"eigvec (lambda={lam:.2g})",
         ))
-        # Diamond at current position of unit eigenvector under Mt
-        scale = 1 - frac + frac * lam
-        tip = scale * ev
+        tip = Mt @ ev
         fig.add_trace(go.Scatter3d(
             x=[tip[0]], y=[tip[1]], z=[tip[2]], mode="markers",
             marker=dict(color=_EIG_COLORS_3D[k], size=5, symbol="diamond"),
@@ -1417,27 +1662,35 @@ def _fig_linear_3d(matrix_str, t, vec_str):
             showlegend=False,
         ))
 
-    # ── User vector with trace path ───────────────────────────────────────────
+    # ── User vector with trajectory curve ─────────────────────────────────────
     vec = _parse_vector(vec_str)
     if vec is not None and len(vec) == 3:
-        # Arc trail
-        n_trail = 60
-        trail_fracs = np.linspace(0, frac, n_trail)
-        trail_pts = np.array([(((1 - f) * I3 + f * M) @ vec) for f in trail_fracs])
-
-        # Ghost trail
-        fig.add_trace(go.Scatter3d(
-            x=trail_pts[:, 0], y=trail_pts[:, 1], z=trail_pts[:, 2],
-            mode="lines", line=dict(color="rgba(0,255,136,0.2)", width=2),
-            showlegend=False, hoverinfo="skip",
-        ))
-        # Bright recent trail
-        recent = max(1, int(n_trail * 0.6))
-        fig.add_trace(go.Scatter3d(
-            x=trail_pts[recent:, 0], y=trail_pts[recent:, 1], z=trail_pts[recent:, 2],
-            mode="lines", line=dict(color="rgba(0,255,136,0.6)", width=4),
-            showlegend=False, hoverinfo="skip",
-        ))
+        if flow_ok:
+            # Static full trajectory
+            t_traj = np.linspace(-0.5, 2.0, 150)
+            traj = _flow3(vec, t_traj)
+            fig.add_trace(go.Scatter3d(
+                x=traj[0], y=traj[1], z=traj[2], mode="lines",
+                line=dict(color="rgba(0,255,136,0.15)", width=2, dash="dot"),
+                name="Trajectory curve",
+                hoverinfo="skip",
+            ))
+            t_done = np.linspace(0, frac, max(2, int(frac * 60)))
+            traj_done = _flow3(vec, t_done)
+            fig.add_trace(go.Scatter3d(
+                x=traj_done[0], y=traj_done[1], z=traj_done[2], mode="lines",
+                line=dict(color="rgba(0,255,136,0.5)", width=4),
+                showlegend=False, hoverinfo="skip",
+            ))
+        else:
+            n_trail = 60
+            trail_fracs = np.linspace(0, frac, n_trail)
+            trail_pts = np.array([(((1 - f) * I3 + f * M) @ vec) for f in trail_fracs])
+            fig.add_trace(go.Scatter3d(
+                x=trail_pts[:, 0], y=trail_pts[:, 1], z=trail_pts[:, 2],
+                mode="lines", line=dict(color="rgba(0,255,136,0.3)", width=3),
+                showlegend=False, hoverinfo="skip",
+            ))
 
         vt = Mt @ vec
         fig.add_trace(go.Scatter3d(
@@ -1454,7 +1707,6 @@ def _fig_linear_3d(matrix_str, t, vec_str):
             showscale=False, sizemode="absolute", sizeref=0.15,
             showlegend=False,
         ))
-        # Bright tip marker
         fig.add_trace(go.Scatter3d(
             x=[vt[0]], y=[vt[1]], z=[vt[2]], mode="markers",
             marker=dict(color="#00ff88", size=5,
