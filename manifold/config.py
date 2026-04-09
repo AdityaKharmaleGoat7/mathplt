@@ -12,9 +12,13 @@ MAGNITUDE_CMAP = "inferno"
 PHASE_CMAP = "hsv"
 SURFACE_CMAP = "viridis"
 
-# mpmath precision defaults
+# mpmath precision defaults (kept for backward compatibility)
 DEFAULT_DPS = 25       # sufficient for plotting
 HIGH_DPS = 50          # for verifying zero locations
+
+# Euler-Maclaurin parameters for the fast zeta implementation
+EM_DIRECT_TERMS = 128   # N — direct summation cutoff
+EM_BERNOULLI_TERMS = 10  # K — Bernoulli correction terms (max 10)
 
 # Cache directory for expensive zeta computations
 import os

@@ -20,6 +20,7 @@ dependencies = [
 dev = ["pytest>=8.0", "black>=24.0", "ruff>=0.4", "mypy>=1.9"]
 notebook = ["jupyterlab>=4.0", "notebook>=7.0"]
 webapp = ["dash>=2.16", "plotly>=5.20"]
+gpu = ["cupy-cuda12x>=13.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
