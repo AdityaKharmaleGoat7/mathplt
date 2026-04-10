@@ -41,7 +41,7 @@ cd Manifold
 pip install -e ".[notebook,webapp,dev]"
 
 # Run the web app
-python -m webapp.app
+python -m webapp.main
 # Open http://localhost:8050
 
 # Or launch Jupyter notebooks
@@ -61,7 +61,7 @@ The interactive web app lets you explore all visualizations with real-time contr
 - **Resolution control** -- trade compute time for sharpness
 
 ```bash
-python -m webapp.app
+python -m webapp.main
 ```
 
 <br>
