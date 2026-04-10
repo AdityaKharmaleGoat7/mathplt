@@ -26,6 +26,40 @@ def _parse_vector(text: str):
         return None
     return np.array([float(x) for x in text.split(",")])
 
+
+def _parse_vectors(text: str, dim: int):
+    """Parse semicolon- or newline-separated vectors.
+
+    '1, 2; 3, 4' → [np.array([1,2]), np.array([3,4])]
+    Returns list of valid vectors matching *dim* components. Empty → [].
+    """
+    if not text or not text.strip():
+        return []
+    # Split on semicolons or newlines
+    parts = [p.strip() for p in text.replace("\n", ";").split(";") if p.strip()]
+    vecs = []
+    for p in parts:
+        try:
+            v = np.array([float(x) for x in p.split(",")])
+            if len(v) == dim:
+                vecs.append(v)
+        except (ValueError, TypeError):
+            continue
+    return vecs
+
+
+# Distinct colors for multiple user vectors
+_VEC_COLORS = [
+    "#00ff88",  # lime green (original)
+    "#ff6bff",  # pink
+    "#ffcc00",  # gold
+    "#00ccff",  # cyan
+    "#ff6b6b",  # coral
+    "#b388ff",  # lavender
+    "#ff9100",  # orange
+    "#76ff03",  # light green
+]
+
 # ── Inject dark-mode CSS for Dash dropdowns and scrollbars ────────────────────
 app.index_string = """<!DOCTYPE html>
 <html>
@@ -446,13 +480,13 @@ app.layout = html.Div(style={
                     labelStyle={"marginRight": "16px", "fontSize": "13px", "color": "#c9d1d9"},
                     style={"marginBottom": "8px"},
                 ),
-                html.Span("Vector (optional)", style=_LBL),
+                html.Span("Vectors (optional)", style=_LBL),
                 dcc.Input(
                     id="vector-input", type="text", debounce=True,
-                    placeholder="e.g. 1, 2",
+                    placeholder="e.g. 1,2; 3,-1; 0,1",
                     style=_INPUT,
                 ),
-                html.Div("Enter components separated by commas", style=_HINT),
+                html.Div("Separate vectors with ;   (e.g. 1,2; 3,-1; 0,1)", style=_HINT),
             ]),
 
             # ── Animation controls ────────────────────────────────────────────
@@ -1545,51 +1579,53 @@ def _fig_linear_2d(matrix_str, t, vec_str):
         name=f"e2 -> ({e2[0]:.2f}, {e2[1]:.2f})",
     ))
 
-    # ── 8. User vector: trajectory curve + arrow + dot ───────────────────────
-    vec = _parse_vector(vec_str)
-    if vec is not None and len(vec) == 2:
+    # ── 8. User vectors: trajectory curves + arrows + dots ──────────────────
+    user_vecs = _parse_vectors(vec_str, 2)
+    for vi, vec in enumerate(user_vecs):
+        col = _VEC_COLORS[vi % len(_VEC_COLORS)]
+        # Convert hex to rgba helper
+        r, g, b = int(col[1:3], 16), int(col[3:5], 16), int(col[5:7], 16)
+        col_faint = f"rgba({r},{g},{b},0.15)"
+        col_mid = f"rgba({r},{g},{b},0.5)"
+        col_trail = f"rgba({r},{g},{b},0.3)"
+
         if flow_ok:
-            # Static full trajectory curve (the hyperbola / arc the vector follows)
             t_traj = np.linspace(-0.5, 2.0, 200)
             traj = _flow(vec, t_traj)
             fig.add_trace(go.Scatter(
                 x=traj[0], y=traj[1], mode="lines",
-                line=dict(color="rgba(0,255,136,0.15)", width=1.5, dash="dot"),
-                name="Trajectory curve",
+                line=dict(color=col_faint, width=1.5, dash="dot"),
+                name=f"Traj v{vi+1}",
                 hoverinfo="skip",
             ))
-            # Traversed portion (bright, solid)
             t_done = np.linspace(0, frac, max(2, int(frac * 80)))
             traj_done = _flow(vec, t_done)
             fig.add_trace(go.Scatter(
                 x=traj_done[0], y=traj_done[1], mode="lines",
-                line=dict(color="rgba(0,255,136,0.5)", width=2.5),
+                line=dict(color=col_mid, width=2.5),
                 showlegend=False, hoverinfo="skip",
             ))
         else:
-            # Linear interpolation fallback trail
             n_trail = 60
             trail_fracs = np.linspace(0, frac, n_trail)
             trail_pts = np.array([(((1 - f) * I2 + f * M) @ vec) for f in trail_fracs])
             fig.add_trace(go.Scatter(
                 x=trail_pts[:, 0], y=trail_pts[:, 1], mode="lines",
-                line=dict(color="rgba(0,255,136,0.3)", width=2),
+                line=dict(color=col_trail, width=2),
                 showlegend=False, hoverinfo="skip",
             ))
 
-        # Current vector arrow
         v_t = Mt @ vec
         fig.add_trace(go.Scatter(
             x=[0, v_t[0]], y=[0, v_t[1]], mode="lines+markers",
-            line=dict(color="#00ff88", width=3),
+            line=dict(color=col, width=3),
             marker=dict(symbol=["circle", "arrow"], size=[0, 12],
-                        angleref="previous", color="#00ff88"),
-            name=f"v -> ({v_t[0]:.2f}, {v_t[1]:.2f})",
+                        angleref="previous", color=col),
+            name=f"v{vi+1} -> ({v_t[0]:.2f}, {v_t[1]:.2f})",
         ))
-        # Bright dot at tip
         fig.add_trace(go.Scatter(
             x=[v_t[0]], y=[v_t[1]], mode="markers",
-            marker=dict(color="#00ff88", size=9,
+            marker=dict(color=col, size=9,
                         line=dict(color="white", width=1.5)),
             showlegend=False,
         ))
@@ -1811,24 +1847,29 @@ def _fig_linear_3d(matrix_str, t, vec_str):
             showlegend=False,
         ))
 
-    # ── User vector with trajectory curve ─────────────────────────────────────
-    vec = _parse_vector(vec_str)
-    if vec is not None and len(vec) == 3:
+    # ── User vectors with trajectory curves ─────────────────────────────────
+    user_vecs = _parse_vectors(vec_str, 3)
+    for vi, vec in enumerate(user_vecs):
+        col = _VEC_COLORS[vi % len(_VEC_COLORS)]
+        r, g, b = int(col[1:3], 16), int(col[3:5], 16), int(col[5:7], 16)
+        col_faint = f"rgba({r},{g},{b},0.15)"
+        col_mid = f"rgba({r},{g},{b},0.5)"
+        col_trail = f"rgba({r},{g},{b},0.3)"
+
         if flow_ok:
-            # Static full trajectory
             t_traj = np.linspace(-0.5, 2.0, 150)
             traj = _flow3(vec, t_traj)
             fig.add_trace(go.Scatter3d(
                 x=traj[0], y=traj[1], z=traj[2], mode="lines",
-                line=dict(color="rgba(0,255,136,0.15)", width=2, dash="dot"),
-                name="Trajectory curve",
+                line=dict(color=col_faint, width=2, dash="dot"),
+                name=f"Traj v{vi+1}",
                 hoverinfo="skip",
             ))
             t_done = np.linspace(0, frac, max(2, int(frac * 60)))
             traj_done = _flow3(vec, t_done)
             fig.add_trace(go.Scatter3d(
                 x=traj_done[0], y=traj_done[1], z=traj_done[2], mode="lines",
-                line=dict(color="rgba(0,255,136,0.5)", width=4),
+                line=dict(color=col_mid, width=4),
                 showlegend=False, hoverinfo="skip",
             ))
         else:
@@ -1837,7 +1878,7 @@ def _fig_linear_3d(matrix_str, t, vec_str):
             trail_pts = np.array([(((1 - f) * I3 + f * M) @ vec) for f in trail_fracs])
             fig.add_trace(go.Scatter3d(
                 x=trail_pts[:, 0], y=trail_pts[:, 1], z=trail_pts[:, 2],
-                mode="lines", line=dict(color="rgba(0,255,136,0.3)", width=3),
+                mode="lines", line=dict(color=col_trail, width=3),
                 showlegend=False, hoverinfo="skip",
             ))
 
@@ -1845,20 +1886,20 @@ def _fig_linear_3d(matrix_str, t, vec_str):
         fig.add_trace(go.Scatter3d(
             x=[0, vt[0]], y=[0, vt[1]], z=[0, vt[2]],
             mode="lines+markers",
-            line=dict(color="#00ff88", width=6),
-            marker=dict(size=[0, 5], color="#00ff88"),
-            name=f"v -> ({vt[0]:.2f}, {vt[1]:.2f}, {vt[2]:.2f})",
+            line=dict(color=col, width=6),
+            marker=dict(size=[0, 5], color=col),
+            name=f"v{vi+1} -> ({vt[0]:.2f}, {vt[1]:.2f}, {vt[2]:.2f})",
         ))
         fig.add_trace(go.Cone(
             x=[vt[0]], y=[vt[1]], z=[vt[2]],
             u=[vt[0]*0.15], v=[vt[1]*0.15], w=[vt[2]*0.15],
-            colorscale=[[0, "#00ff88"], [1, "#00ff88"]],
+            colorscale=[[0, col], [1, col]],
             showscale=False, sizemode="absolute", sizeref=0.15,
             showlegend=False,
         ))
         fig.add_trace(go.Scatter3d(
             x=[vt[0]], y=[vt[1]], z=[vt[2]], mode="markers",
-            marker=dict(color="#00ff88", size=5,
+            marker=dict(color=col, size=5,
                         line=dict(color="white", width=1)),
             showlegend=False,
         ))
