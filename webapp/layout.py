@@ -233,6 +233,13 @@ def build_layout():
                     labelStyle={"marginRight": "16px", "fontSize": "13px", "color": "#c9d1d9"},
                     style={"marginBottom": "8px"},
                 ),
+                dcc.Checklist(
+                    id="show-ref-grid", value=["on"],
+                    options=[{"label": " Show reference grid", "value": "on"}],
+                    inputStyle={"marginRight": "6px"},
+                    labelStyle={"fontSize": "12px", "color": "#8b949e"},
+                    style={"marginBottom": "8px"},
+                ),
                 html.Span("Vectors (optional)", style=_LBL),
                 dcc.Input(
                     id="vector-input", type="text", debounce=True,

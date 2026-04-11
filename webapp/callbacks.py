@@ -319,6 +319,7 @@ def tick(_, t, anim, imsmax):
     Input("zeta-b",     "value"),
     Input("linear-dim",    "value"),
     Input("vector-input",  "value"),
+    Input("show-ref-grid", "value"),
     Input("mat-00", "value"),
     Input("mat-01", "value"),
     Input("mat-10", "value"),
@@ -334,7 +335,7 @@ def tick(_, t, anim, imsmax):
     Input("mat3-22", "value"),
 )
 def update_graph(anim, eq, xr, yr, rer, imr, t, res, cmap, nz, imsmax, windtop, za, zb,
-                 lin_dim, vec_str, m00, m01, m10, m11,
+                 lin_dim, vec_str, ref_grid, m00, m01, m10, m11,
                  m3_00, m3_01, m3_02, m3_10, m3_11, m3_12, m3_20, m3_21, m3_22):
     # Defaults
     eq      = eq      or "sin(x + t)"
@@ -373,7 +374,8 @@ def update_graph(anim, eq, xr, yr, rer, imr, t, res, cmap, nz, imsmax, windtop, 
                 matrix_str = (f"{m3_00 or 0}, {m3_01 or 0}, {m3_02 or 0}; "
                               f"{m3_10 or 0}, {m3_11 or 0}, {m3_12 or 0}; "
                               f"{m3_20 or 0}, {m3_21 or 0}, {m3_22 or 0}")
-            return _fig_linear_transform(matrix_str, t, lin_dim, vec_str), ""
+            show_ref = bool(ref_grid and "on" in ref_grid)
+            return _fig_linear_transform(matrix_str, t, lin_dim, vec_str, show_ref), ""
     except Exception as e:
         fig = go.Figure()
         fig.update_layout(**DARK,

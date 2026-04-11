@@ -203,14 +203,14 @@ def _fig_point(a: float, b: float, res: int):
     return fig, value_str
 
 
-def _fig_linear_transform(eq, t, dim, vec_str):
+def _fig_linear_transform(eq, t, dim, vec_str, show_ref=True):
     """Dispatch to 2D or 3D linear transform figure."""
     if (dim or "2D") == "3D":
-        return _fig_linear_3d(eq, t, vec_str)
-    return _fig_linear_2d(eq, t, vec_str)
+        return _fig_linear_3d(eq, t, vec_str, show_ref)
+    return _fig_linear_2d(eq, t, vec_str, show_ref)
 
 
-def _fig_linear_2d(matrix_str, t, vec_str):
+def _fig_linear_2d(matrix_str, t, vec_str, show_ref=True):
     """2D linear transformation — full dynamics visualization:
     phase portrait, trajectory curves, invariant curves, vector field,
     animated grid morphing, SVD ellipse axes, eigenvector lines."""
@@ -352,9 +352,24 @@ def _fig_linear_2d(matrix_str, t, vec_str):
                     hoverinfo="skip",
                 ))
 
-    # ── 3. Animated grid lines (space morphs from identity -> M) ──────────────
-    span = np.linspace(-4, 4, 50)
-    for g in np.arange(-4, 5, 1):
+    # ── 3a. Static background reference grid (never transforms) ────────────────
+    if show_ref:
+        bg_span = np.linspace(-15, 15, 100)
+        for g in np.arange(-15, 16, 1):
+            fig.add_trace(go.Scatter(
+                x=[g, g], y=[-15, 15], mode="lines",
+                line=dict(color="rgba(255, 140, 0, 0.08)", width=0.5),
+                showlegend=False, hoverinfo="skip",
+            ))
+            fig.add_trace(go.Scatter(
+                x=[-15, 15], y=[g, g], mode="lines",
+                line=dict(color="rgba(0, 160, 255, 0.08)", width=0.5),
+                showlegend=False, hoverinfo="skip",
+            ))
+
+    # ── 3b. Animated grid lines (space morphs from identity -> M) ─────────────
+    span = np.linspace(-15, 15, 120)
+    for g in np.arange(-15, 16, 1):
         pts = Mt @ np.array([np.full_like(span, g), span])
         fig.add_trace(go.Scatter(
             x=pts[0], y=pts[1], mode="lines",
@@ -419,7 +434,7 @@ def _fig_linear_2d(matrix_str, t, vec_str):
         ev = eigvecs_M[:, k].real
         ev = ev / np.linalg.norm(ev)
         lam = eigvals_M[k].real
-        far = 8
+        far = 20
         fig.add_trace(go.Scatter(
             x=[-far * ev[0], far * ev[0]],
             y=[-far * ev[1], far * ev[1]],
@@ -536,12 +551,12 @@ def _fig_linear_2d(matrix_str, t, vec_str):
             f"t = {frac:.2f}"
         ), font=dict(size=12)),
         xaxis=dict(
-            range=[-5, 5], scaleanchor="y", scaleratio=1,
+            range=[-15, 15], scaleanchor="y", scaleratio=1,
             zeroline=True, zerolinecolor="#30363d", zerolinewidth=1,
             showgrid=False,
         ),
         yaxis=dict(
-            range=[-5, 5],
+            range=[-15, 15],
             zeroline=True, zerolinecolor="#30363d", zerolinewidth=1,
             showgrid=False,
         ),
@@ -550,7 +565,7 @@ def _fig_linear_2d(matrix_str, t, vec_str):
     return fig
 
 
-def _fig_linear_3d(matrix_str, t, vec_str):
+def _fig_linear_3d(matrix_str, t, vec_str, show_ref=True):
     """3D linear transformation — animated cube, phase portrait,
     trajectory curves, eigenvector lines, basis vectors."""
     try:
@@ -625,6 +640,21 @@ def _fig_linear_3d(matrix_str, t, vec_str):
             mode="lines", line=dict(color="rgba(230,237,243,0.5)", width=3),
             showlegend=False, hoverinfo="skip",
         ))
+
+    # ── Static background reference grid (3D, never transforms) ────────────────
+    if show_ref:
+        bg_span = np.linspace(-15, 15, 60)
+        for g in np.arange(-15, 16, 3):
+            fig.add_trace(go.Scatter3d(
+                x=[g, g], y=[-15, 15], z=[0, 0], mode="lines",
+                line=dict(color="rgba(255,140,0,0.06)", width=0.5),
+                showlegend=False, hoverinfo="skip",
+            ))
+            fig.add_trace(go.Scatter3d(
+                x=[-15, 15], y=[g, g], z=[0, 0], mode="lines",
+                line=dict(color="rgba(0,160,255,0.06)", width=0.5),
+                showlegend=False, hoverinfo="skip",
+            ))
 
     # ── Grid lines on cube faces ──────────────────────────────────────────────
     span = np.linspace(-1, 1, 10)
@@ -811,9 +841,9 @@ def _fig_linear_3d(matrix_str, t, vec_str):
             f"det = {det_M:.3g}  |  eigenvalues: {eig_str}  |  t = {frac:.2f}"
         ), font=dict(size=12)),
         scene=dict(
-            xaxis=dict(range=[-4, 4], title="x"),
-            yaxis=dict(range=[-4, 4], title="y"),
-            zaxis=dict(range=[-4, 4], title="z"),
+            xaxis=dict(range=[-15, 15], title="x"),
+            yaxis=dict(range=[-15, 15], title="y"),
+            zaxis=dict(range=[-15, 15], title="z"),
             camera=camera,
             aspectmode="cube",
         ),
