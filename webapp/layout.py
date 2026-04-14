@@ -308,6 +308,39 @@ def build_layout():
                               "toImageButtonOptions": {"format": "png", "scale": 2}}),
         ]),
 
+        # ── Home splash overlay (covers entire viewport incl. sidebar) ────────
+        html.Div(id="home-splash", style={
+            "position": "fixed", "top": "0", "left": "0",
+            "width": "100vw", "height": "100vh",
+            "background": "#0d1117",
+            "display": "flex", "flexDirection": "column",
+            "alignItems": "center", "justifyContent": "center",
+            "zIndex": "9999",
+        }, children=[
+            html.Img(src="/assets/logo.png", style={
+                "width": "180px", "height": "180px",
+                "marginBottom": "24px", "opacity": "0.98",
+                "filter": "drop-shadow(0 4px 24px rgba(88, 166, 255, 0.35))",
+            }),
+            html.Div("Manifold", style={
+                "color": "#58a6ff", "fontSize": "56px",
+                "fontWeight": "700", "letterSpacing": "0.04em",
+                "marginBottom": "6px",
+            }),
+            html.Div("Own the space", style={
+                "color": "#8b949e", "fontSize": "18px",
+                "fontStyle": "italic", "letterSpacing": "0.32em",
+                "marginBottom": "36px", "textTransform": "uppercase",
+            }),
+            html.Button("Get Started", id="home-dismiss", n_clicks=0, style={
+                "background": "#238636", "color": "white",
+                "border": "none", "borderRadius": "8px",
+                "padding": "12px 32px", "fontSize": "14px",
+                "fontWeight": "600", "letterSpacing": "0.08em",
+                "cursor": "pointer", "fontFamily": "monospace",
+            }),
+        ]),
+
         # Interval timer
         dcc.Interval(id="interval", interval=80, disabled=True),
     ])

@@ -251,6 +251,17 @@ def toggle_play(_p, _s, is_disabled):
 def set_speed(ms): return ms or 80
 
 
+# ── Dismiss home splash ──────────────────────────────────────────────────────
+
+@app.callback(
+    Output("home-splash", "style"),
+    Input("home-dismiss", "n_clicks"),
+    prevent_initial_call=True,
+)
+def dismiss_splash(_n):
+    return {"display": "none"}
+
+
 # ── Info panel ───────────────────────────────────────────────────────────────
 
 @app.callback(Output("info-panel", "children"), Input("anim-type", "value"))
